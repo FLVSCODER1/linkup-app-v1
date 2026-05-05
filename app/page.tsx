@@ -15,7 +15,8 @@ const allowedDomains = [
   "@ksd.org",
   "@pasco.k12.wa.us",
   "@richland.k12.wa.us",
-  "@ufl.edu", // testing
+  "@ufl.edu",
+  "@g.risd.org" // testing
 ];
 
 // ✅ Email validation
