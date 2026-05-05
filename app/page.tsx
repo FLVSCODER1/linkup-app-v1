@@ -42,7 +42,7 @@ function getSchoolFromEmail(email: string) {
     return "University of Florida Test";  
   }
   if (lower.endsWith("@g.risd.org")) {
-    return "Richardson ISD";
+    return "University of Florida Test";
   } 
 
   return "Unknown School";
