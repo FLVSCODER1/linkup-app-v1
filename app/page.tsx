@@ -21,14 +21,15 @@ const allowedDomains = [
 
 // ✅ Email validation
 function isValidSchoolEmail(email: string) {
+  const clean = email.trim().toLowerCase();
   return allowedDomains.some((domain) =>
-    email.toLowerCase().endsWith(domain)
+    clean.endsWith(domain)
   );
 }
 
 // ✅ Extract school name
 function getSchoolFromEmail(email: string) {
-  const lower = email.toLowerCase();
+  const lower = email.trim().toLowerCase();
 
   if (lower.endsWith("@students.ksd.org") || lower.endsWith("@ksd.org")) {
     return "Kennewick School District";
@@ -111,9 +112,9 @@ export default function LoginPage() {
     if (!data.profileComplete) {
       router.push("/profile");
     } else if (!data.promStatus || !data.lookingFor) {
-      router.push("/event");
+      router.push("/events");
     } else {
-      router.push("/people");
+      router.push("/events");
     }
 
     setMessage("Logged in.");
