@@ -39,8 +39,11 @@ function getSchoolFromEmail(email: string) {
     return "Richland School District";
   }
   if (lower.endsWith("@ufl.edu")) {
-    return "University of Florida Test";
+    return "University of Florida Test";  
   }
+  if (lower.endsWith("@g.risd.org")) {
+    return "Richardson ISD";
+  } 
 
   return "Unknown School";
 }
