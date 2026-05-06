@@ -63,7 +63,7 @@ export default function ProfilePage() {
       });
 
       setMessage("Profile saved.");
-      router.push("/event");
+      router.push("/events");
     } catch (error: any) {
       setMessage(error.message);
     }
