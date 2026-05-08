@@ -26,7 +26,9 @@ export default function EventsPage() {
   const [currentUserData, setCurrentUserData] = useState<any>(null);
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [joinedEventIds, setJoinedEventIds] = useState<string[]>([]);
-  const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>({});
+  const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>(
+    {}
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -49,13 +51,14 @@ export default function EventsPage() {
         }
 
         const currentUser = userSnap.data();
-        setCurrentUid(user.uid);
-        setCurrentUserData(currentUser);
 
         if (!currentUser.school) {
           router.push("/profile/setup");
           return;
         }
+
+        setCurrentUid(user.uid);
+        setCurrentUserData(currentUser);
 
         const eventsQuery = query(
           collection(db, "events"),
@@ -72,30 +75,25 @@ export default function EventsPage() {
         const joinedIds: string[] = [];
         const counts: Record<string, number> = {};
 
-          for (const event of schoolEvents) {
-            const attendeesSnap = await getDocs(
-              collection(db, "events", event.id, "attendees")
-            );
+        for (const event of schoolEvents) {
+          const attendeesSnap = await getDocs(
+            collection(db, "events", event.id, "attendees")
+          );
 
-            counts[event.id] = attendeesSnap.size;
+          counts[event.id] = attendeesSnap.size;
 
-            const attendeeDoc = attendeesSnap.docs.find(
-              (attendee) => attendee.id === user.uid
-            );
+          const userIsAttending = attendeesSnap.docs.some(
+            (attendee) => attendee.id === user.uid
+          );
 
-            if (attendeeDoc) {
-              joinedIds.push(event.id);
-            }
+          if (userIsAttending) {
+            joinedIds.push(event.id);
           }
-
-          setJoinedEventIds(joinedIds);
-          setAttendeeCounts(counts);
-
-
-
-
+        }
 
         setEvents(schoolEvents);
+        setJoinedEventIds(joinedIds);
+        setAttendeeCounts(counts);
       } catch (error) {
         console.error("Error loading events:", error);
       } finally {
@@ -106,52 +104,49 @@ export default function EventsPage() {
     return () => unsubscribe();
   }, [router]);
 
-async function handleToggleJoin(event: any) {
-  if (!currentUid || !currentUserData || !event?.id) return;
+  async function handleToggleJoin(event: any) {
+    if (!currentUid || !currentUserData || !event?.id) return;
 
-  const attendeeRef = doc(
-    db,
-    "events",
-    event.id,
-    "attendees",
-    currentUid
-  );
-
-  const alreadyJoined = joinedEventIds.includes(event.id);
-
-  if (alreadyJoined) {
-    await deleteDoc(attendeeRef);
-
-    setJoinedEventIds((prev) =>
-      prev.filter((id) => id !== event.id)
+    const attendeeRef = doc(
+      db,
+      "events",
+      event.id,
+      "attendees",
+      currentUid
     );
 
-    setAttendeeCounts((prev) => ({
-      ...prev,
-      [event.id]: Math.max((prev[event.id] || 1) - 1, 0),
-    }));
-  } else {
-    await setDoc(attendeeRef, {
-      uid: currentUid,
-      school: currentUserData.school,
-      joinedAt: serverTimestamp(),
-    });
+    const alreadyJoined = joinedEventIds.includes(event.id);
 
-    setJoinedEventIds((prev) => [...prev, event.id]);
+    try {
+      if (alreadyJoined) {
+        await deleteDoc(attendeeRef);
 
-    setAttendeeCounts((prev) => ({
-      ...prev,
-      [event.id]: (prev[event.id] || 0) + 1,
-    }));
+        setJoinedEventIds((prev) =>
+          prev.filter((id) => id !== event.id)
+        );
+
+        setAttendeeCounts((prev) => ({
+          ...prev,
+          [event.id]: Math.max((prev[event.id] || 1) - 1, 0),
+        }));
+      } else {
+        await setDoc(attendeeRef, {
+          uid: currentUid,
+          school: currentUserData.school,
+          joinedAt: serverTimestamp(),
+        });
+
+        setJoinedEventIds((prev) => [...prev, event.id]);
+
+        setAttendeeCounts((prev) => ({
+          ...prev,
+          [event.id]: (prev[event.id] || 0) + 1,
+        }));
+      }
+    } catch (error) {
+      console.error("Error toggling attendance:", error);
+    }
   }
-}
-
-
-
-
-
-
-
 
   if (loading) {
     return (
@@ -182,7 +177,6 @@ async function handleToggleJoin(event: any) {
           <div className="grid gap-4">
             {events.map((event) => (
               <EventCard
-                
                 key={event.id}
                 event={event}
                 isJoined={joinedEventIds.includes(event.id)}
@@ -227,7 +221,8 @@ async function handleToggleJoin(event: any) {
           right-6
           z-50
           rounded-full
-          border border-white/10
+          border
+          border-white/10
           bg-black/80
           px-3
           py-2

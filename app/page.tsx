@@ -8,48 +8,20 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { BioRhyme } from "next/font/google";
+import { doc, getDoc } from "firebase/firestore";
 
-// ✅ Allowed domains
 const allowedDomains = [
   "@students.ksd.org",
   "@ksd.org",
   "@pasco.k12.wa.us",
   "@richland.k12.wa.us",
   "@ufl.edu",
-  "@g.risd.org" // testing
+  "@g.risd.org",
 ];
 
-// ✅ Email validation
 function isValidSchoolEmail(email: string) {
   const clean = email.trim().toLowerCase();
-  return allowedDomains.some((domain) =>
-    clean.endsWith(domain)
-  );
-}
-
-// ✅ Extract school name
-function getSchoolFromEmail(email: string) {
-  const lower = email.trim().toLowerCase();
-
-  if (lower.endsWith("@students.ksd.org") || lower.endsWith("@ksd.org")) {
-    return "Kennewick School District";
-  }
-  if (lower.endsWith("@pasco.k12.wa.us")) {
-    return "Pasco School District";
-  }
-  if (lower.endsWith("@richland.k12.wa.us")) {
-    return "Richland School District";
-  }
-  if (lower.endsWith("@ufl.edu")) {
-    return "University of Florida Test";  
-  }
-  if (lower.endsWith("@g.risd.org")) {
-    return "University of Florida Test";
-  } 
-
-  return "Unknown School";
+  return allowedDomains.some((domain) => clean.endsWith(domain));
 }
 
 export default function LoginPage() {
@@ -59,9 +31,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // 🔥 SIGN UP
   async function signUp() {
     try {
+      setMessage("");
+
       if (!isValidSchoolEmail(email)) {
         setMessage("Use a valid school email.");
         return;
@@ -73,66 +46,62 @@ export default function LoginPage() {
         password
       );
 
-      const user = userCredential.user;
-      await sendEmailVerification(user);
-      const school = getSchoolFromEmail(email);
+      await sendEmailVerification(userCredential.user);
 
+      setMessage("Account created. Check your email to verify your account.");
       router.push("/verify-email");
-      return;
-
-  
-
-      setMessage(
-        "Account created. Verify your email before logging in."
-      );
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(error.message || "Failed to create account.");
     }
   }
 
-  // 🔥 LOGIN
   async function logIn() {
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
+    try {
+      setMessage("");
 
-    const userRef = doc(db, "users", userCredential.user.uid);
-    const userSnap = await getDoc(userRef);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
 
-    if (!userSnap.exists()) {
-      router.push("/profile");
-      return;
-    }
+      const user = userCredential.user;
 
-    const data = userSnap.data();
-    await userCredential.user.reload();
+      await user.reload();
 
-    if (!userCredential.user.emailVerified) {
-      setMessage("Verify your email before logging in.");
-      return;
-  }
+      if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        setMessage("Verification email sent. Check your inbox.");
+        router.push("/verify-email");
+        return;
+      }
 
-    if (!data.profileComplete) {
-      router.push("/profile");
-    } else if (!data.promStatus || !data.lookingFor) {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        router.push("/profile/setup");
+        return;
+      }
+
+      const data = userSnap.data();
+
+      if (!data.profileComplete) {
+        router.push("/profile/setup");
+        return;
+      }
+
       router.push("/events");
-    } else {
-      router.push("/events");
+    } catch (error: any) {
+      setMessage(error.message || "Failed to log in.");
     }
-
-    setMessage("Logged in.");
-  } catch (error: any) {
-    setMessage(error.message);
   }
-}
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black text-white p-6">
+    <main className="flex min-h-screen items-center justify-center bg-black p-6 text-white">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
-        <h1 className="mb-2 text-3xl font-bold">LinkUp</h1>
+        <h1 className="mb-2 text-4xl font-bold">LinkUp</h1>
+
         <p className="mb-6 text-sm text-white/70">
           Sign in with your school email.
         </p>
@@ -140,6 +109,7 @@ export default function LoginPage() {
         <input
           className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
           placeholder="School email"
+          type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -155,22 +125,20 @@ export default function LoginPage() {
         <div className="flex gap-3">
           <button
             onClick={logIn}
-            className="w-full rounded-lg bg-white p-3 font-semibold text-black"
+            className="flex-1 rounded-lg bg-white p-3 font-semibold text-black"
           >
             Log in
           </button>
 
           <button
             onClick={signUp}
-            className="w-full rounded-lg border border-white/20 p-3 font-semibold"
+            className="flex-1 rounded-lg border border-white/10 bg-white/10 p-3 font-semibold text-white"
           >
             Sign up
           </button>
         </div>
 
-        {message && (
-          <p className="mt-4 text-sm text-white/70">{message}</p>
-        )}
+        {message && <p className="mt-4 text-sm text-white/70">{message}</p>}
       </div>
     </main>
   );

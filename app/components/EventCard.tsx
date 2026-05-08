@@ -21,7 +21,8 @@ export default function EventCard({
       className="
         cursor-pointer
         rounded-2xl
-        border border-white/10
+        border
+        border-white/10
         bg-white/5
         p-5
         transition
@@ -51,9 +52,7 @@ export default function EventCard({
       )}
 
       <div className="mt-5 flex items-center justify-between">
-        <p className="text-xs text-white/50">
-          {attendeeCount} attending
-        </p>
+        <p className="text-xs text-white/50">{attendeeCount} attending</p>
 
         <button
           onClick={(e) => {
