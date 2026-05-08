@@ -4,52 +4,154 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 import NavMenu from "../components/NavMenu";
+import EventCard from "../components/EventCard";
 
 export default function EventsPage() {
   const router = useRouter();
 
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
+  const [joinedEventIds, setJoinedEventIds] = useState<string[]>([]);
+  const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/");
-        return;
-      }
-
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-
-      if (!userSnap.exists()) {
-        router.push("/profile/setup");
-        return;
-      }
-
-      const currentUser = userSnap.data();
-      const eventsSnap = await getDocs(collection(db, "events"));
-
-      const filteredEvents: any[] = [];
-
-      eventsSnap.forEach((eventDoc) => {
-        const data = eventDoc.data();
-
-        // only show events from same school
-        if (data.school === currentUser.school) {
-          filteredEvents.push({
-            id: eventDoc.id,
-            ...data,
-          });
+      try {
+        if (!user) {
+          router.push("/");
+          return;
         }
-      });
 
-      setEvents(filteredEvents);
-      setLoading(false);
+        if (!user.emailVerified) {
+          router.push("/verify-email");
+          return;
+        }
+
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+
+        if (!userSnap.exists()) {
+          router.push("/profile/setup");
+          return;
+        }
+
+        const currentUser = userSnap.data();
+        setCurrentUid(user.uid);
+        setCurrentUserData(currentUser);
+
+        if (!currentUser.school) {
+          router.push("/profile/setup");
+          return;
+        }
+
+        const eventsQuery = query(
+          collection(db, "events"),
+          where("school", "==", currentUser.school)
+        );
+
+        const eventsSnap = await getDocs(eventsQuery);
+
+        const schoolEvents = eventsSnap.docs.map((eventDoc) => ({
+          id: eventDoc.id,
+          ...eventDoc.data(),
+        }));
+
+        const joinedIds: string[] = [];
+        const counts: Record<string, number> = {};
+
+          for (const event of schoolEvents) {
+            const attendeesSnap = await getDocs(
+              collection(db, "events", event.id, "attendees")
+            );
+
+            counts[event.id] = attendeesSnap.size;
+
+            const attendeeDoc = attendeesSnap.docs.find(
+              (attendee) => attendee.id === user.uid
+            );
+
+            if (attendeeDoc) {
+              joinedIds.push(event.id);
+            }
+          }
+
+          setJoinedEventIds(joinedIds);
+          setAttendeeCounts(counts);
+
+
+
+
+
+        setEvents(schoolEvents);
+      } catch (error) {
+        console.error("Error loading events:", error);
+      } finally {
+        setLoading(false);
+      }
     });
 
     return () => unsubscribe();
   }, [router]);
+
+async function handleToggleJoin(event: any) {
+  if (!currentUid || !currentUserData || !event?.id) return;
+
+  const attendeeRef = doc(
+    db,
+    "events",
+    event.id,
+    "attendees",
+    currentUid
+  );
+
+  const alreadyJoined = joinedEventIds.includes(event.id);
+
+  if (alreadyJoined) {
+    await deleteDoc(attendeeRef);
+
+    setJoinedEventIds((prev) =>
+      prev.filter((id) => id !== event.id)
+    );
+
+    setAttendeeCounts((prev) => ({
+      ...prev,
+      [event.id]: Math.max((prev[event.id] || 1) - 1, 0),
+    }));
+  } else {
+    await setDoc(attendeeRef, {
+      uid: currentUid,
+      school: currentUserData.school,
+      joinedAt: serverTimestamp(),
+    });
+
+    setJoinedEventIds((prev) => [...prev, event.id]);
+
+    setAttendeeCounts((prev) => ({
+      ...prev,
+      [event.id]: (prev[event.id] || 0) + 1,
+    }));
+  }
+}
+
+
+
+
+
+
+
 
   if (loading) {
     return (
@@ -79,47 +181,20 @@ export default function EventsPage() {
         ) : (
           <div className="grid gap-4">
             {events.map((event) => (
-              <div
+              <EventCard
+                
                 key={event.id}
+                event={event}
+                isJoined={joinedEventIds.includes(event.id)}
+                attendeeCount={attendeeCounts[event.id] || 0}
                 onClick={() => router.push(`/event/${event.id}`)}
-                className="
-                  cursor-pointer
-                  rounded-2xl
-                  border border-white/10
-                  bg-white/5
-                  p-5
-                  transition
-                  hover:bg-white/10
-                "
-              >
-                <p className="mb-2 text-xs uppercase tracking-wide text-white/40">
-                  {event.category || "event"}
-                </p>
-
-                <h2 className="text-2xl font-semibold">
-                  {event.title}
-                </h2>
-
-                <p className="mt-2 text-sm text-white/70">
-                  {event.date || "Date TBD"}
-                </p>
-
-                <p className="text-sm text-white/50">
-                  {event.location || "Location TBD"}
-                </p>
-
-                {event.description && (
-                  <p className="mt-4 text-sm leading-relaxed text-white/70">
-                    {event.description}
-                  </p>
-                )}
-              </div>
+                onToggleJoin={() => handleToggleJoin(event)}
+              />
             ))}
           </div>
         )}
       </div>
 
-      {/* FLOATING POST EVENT BUTTON */}
       <button
         onClick={() => router.push("/events/new")}
         className="
@@ -143,6 +218,7 @@ export default function EventsPage() {
       >
         + Post Event
       </button>
+
       <button
         onClick={() => router.push("/events/import-calendar")}
         className="
@@ -150,24 +226,24 @@ export default function EventsPage() {
           bottom-6
           right-6
           z-50
-         rounded-full
-         border border-white/10
-         bg-black/80
-         px-3
-         py-2
-         text-xs
-         font-semibold
-         text-white
-         shadow-xl
-         backdrop-blur
-         transition
-         hover:bg-white/10
-         hover:scale-105
-         active:scale-95
-      "
-        >
-  Import
-</button>
+          rounded-full
+          border border-white/10
+          bg-black/80
+          px-3
+          py-2
+          text-xs
+          font-semibold
+          text-white
+          shadow-xl
+          backdrop-blur
+          transition
+          hover:scale-105
+          hover:bg-white/10
+          active:scale-95
+        "
+      >
+        Import
+      </button>
     </main>
   );
 }

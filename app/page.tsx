@@ -77,15 +77,10 @@ export default function LoginPage() {
       await sendEmailVerification(user);
       const school = getSchoolFromEmail(email);
 
-      await setDoc(doc(db, "users", user.uid), {
-        email: user.email,
-        school,
-        displayName: "",
-        bio: "",
-        grade: "",
-        profileComplete: false,
-        createdAt: new Date(),
-      });
+      router.push("/verify-email");
+      return;
+
+  
 
       setMessage(
         "Account created. Verify your email before logging in."
