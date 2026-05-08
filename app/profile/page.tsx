@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import NavMenu from "../components/NavMenu";
 
 export default function ProfilePage() {
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState("");
   const [grade, setGrade] = useState("");
+  const [bio, setBio] = useState("");
+  const [school, setSchool] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -21,14 +24,15 @@ export default function ProfilePage() {
         return;
       }
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await getDoc(doc(db, "users", user.uid));
 
       if (userSnap.exists()) {
         const data = userSnap.data();
 
         setDisplayName(data.displayName || "");
         setGrade(data.grade || "");
+        setBio(data.bio || "");
+        setSchool(data.school || "");
       }
 
       setLoading(false);
@@ -59,11 +63,11 @@ export default function ProfilePage() {
       await updateDoc(doc(db, "users", user.uid), {
         displayName: displayName.trim(),
         grade,
-        profileComplete: true
+        bio: bio.trim(),
+        profileComplete: true,
       });
 
       setMessage("Profile saved.");
-      router.push("/events");
     } catch (error: any) {
       setMessage(error.message);
     }
@@ -78,41 +82,86 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-black text-white p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
-        <h1 className="mb-2 text-3xl font-bold">Set up profile</h1>
+    <main className="min-h-screen bg-black p-6 text-white">
+      <NavMenu />
+
+      <div className="mx-auto max-w-2xl">
+        <h1 className="mb-2 text-3xl font-bold">Your Profile</h1>
 
         <p className="mb-6 text-sm text-white/70">
-          Add the basics so people know who you are.
+          This is what other students can see.
         </p>
 
-        <input
-          className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-          placeholder="Display name"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-        />
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
+          <label className="mb-2 block text-sm text-white/70">
+            Display name
+          </label>
+          <input
+            className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
+            placeholder="Display name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+          />
 
-        <select
-          className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-        >
-          <option value="">Select grade</option>
-          <option value="9">Freshman</option>
-          <option value="10">Sophomore</option>
-          <option value="11">Junior</option>
-          <option value="12">Senior</option>
-        </select>
+          <label className="mb-2 block text-sm text-white/70">Grade</label>
+          <select
+            className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+          >
+            <option value="">Select grade</option>
+            <option value="9">Freshman</option>
+            <option value="10">Sophomore</option>
+            <option value="11">Junior</option>
+            <option value="12">Senior</option>
+          </select>
 
-        <button
-          onClick={saveProfile}
-          className="w-full rounded-lg bg-white p-3 font-semibold text-black"
-        >
-          Save profile
-        </button>
+          <label className="mb-2 block text-sm text-white/70">Bio</label>
+          <textarea
+            className="mb-4 min-h-28 w-full rounded-lg bg-white/10 p-3 outline-none"
+            placeholder="Write a short bio..."
+            value={bio}
+            maxLength={250}
+            onChange={(e) => setBio(e.target.value)}
+          />
 
-        {message && <p className="mt-4 text-sm text-white/70">{message}</p>}
+          <p className="mb-4 text-xs text-white/40">
+            {bio.length}/250 characters
+          </p>
+
+          <div className="mb-6 rounded-xl border border-white/10 bg-black/30 p-4">
+            <p className="mb-1 text-xs uppercase tracking-wide text-white/40">
+              Preview
+            </p>
+
+            <h2 className="text-xl font-semibold">
+              {displayName || "Unnamed"}
+            </h2>
+
+            <p className="text-sm text-white/70">
+              Grade: {grade || "Unknown"}
+            </p>
+
+            <p className="text-sm text-white/50">
+              {school || "School unknown"}
+            </p>
+
+            <p className="mt-3 text-sm text-white/80">
+              {bio || "No bio yet."}
+            </p>
+          </div>
+
+          <button
+            onClick={saveProfile}
+            className="w-full rounded-lg bg-white p-3 font-semibold text-black"
+          >
+            Save profile
+          </button>
+
+          {message && (
+            <p className="mt-4 text-sm text-white/70">{message}</p>
+          )}
+        </div>
       </div>
     </main>
   );

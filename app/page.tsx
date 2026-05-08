@@ -8,6 +8,7 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { BioRhyme } from "next/font/google";
 
 // ✅ Allowed domains
 const allowedDomains = [
@@ -78,6 +79,7 @@ export default function LoginPage() {
         email: user.email,
         school,
         displayName: "",
+        bio: "",
         grade: "",
         profileComplete: false,
         createdAt: new Date(),

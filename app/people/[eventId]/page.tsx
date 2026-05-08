@@ -15,6 +15,7 @@ import NavMenu from "../../components/NavMenu";
 
 type AppUser = {
   id: string;
+  bio?: string;
   displayName?: string;
   grade?: string;
   school?: string;
