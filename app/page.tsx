@@ -6,6 +6,7 @@ import { auth, db } from "./lib/firebase";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendEmailVerification,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { BioRhyme } from "next/font/google";
@@ -73,6 +74,7 @@ export default function LoginPage() {
       );
 
       const user = userCredential.user;
+      await sendEmailVerification(user);
       const school = getSchoolFromEmail(email);
 
       await setDoc(doc(db, "users", user.uid), {
@@ -85,8 +87,9 @@ export default function LoginPage() {
         createdAt: new Date(),
       });
 
-      setMessage("Account created.");
-      router.push("/profile");
+      setMessage(
+        "Account created. Verify your email before logging in."
+      );
     } catch (error: any) {
       setMessage(error.message);
     }
@@ -110,6 +113,12 @@ export default function LoginPage() {
     }
 
     const data = userSnap.data();
+    await userCredential.user.reload();
+
+    if (!userCredential.user.emailVerified) {
+      setMessage("Verify your email before logging in.");
+      return;
+  }
 
     if (!data.profileComplete) {
       router.push("/profile");
