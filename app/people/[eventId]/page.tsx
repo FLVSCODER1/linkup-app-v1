@@ -10,6 +10,8 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
 
@@ -73,7 +75,12 @@ export default function PeoplePage() {
       }
 
       const prefsSnap = await getDocs(collection(db, "eventPreferences"));
-      const usersSnap = await getDocs(collection(db, "users"));
+      const usersSnap = await getDocs(
+       query(
+         collection(db, "users"),
+         where("school", "==", currentUser.school)
+        )
+     );
 
       const eligiblePrefs = new Map<
         string,
@@ -104,7 +111,6 @@ export default function PeoplePage() {
 
         if (
           pref &&
-          userData.school === currentUser.school &&
           userData.profileComplete
         ) {
           filteredUsers.push({

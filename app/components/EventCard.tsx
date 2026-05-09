@@ -5,7 +5,7 @@ type EventCardProps = {
   isJoined?: boolean;
   attendeeCount?: number;
   onClick: () => void;
-  onToggleJoin: () => void;
+  onJoinClick: () => void;
 };
 
 export default function EventCard({
@@ -13,7 +13,7 @@ export default function EventCard({
   isJoined = false,
   attendeeCount = 0,
   onClick,
-  onToggleJoin,
+  onJoinClick,
 }: EventCardProps) {
   return (
     <div
@@ -21,8 +21,7 @@ export default function EventCard({
       className="
         cursor-pointer
         rounded-2xl
-        border
-        border-white/10
+        border border-white/10
         bg-white/5
         p-5
         transition
@@ -57,16 +56,10 @@ export default function EventCard({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onToggleJoin();
+            onJoinClick();
           }}
           className={`
-            rounded-full
-            px-4
-            py-2
-            text-xs
-            font-semibold
-            transition
-            active:scale-95
+            rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95
             ${
               isJoined
                 ? "bg-white/10 text-white hover:bg-white/20"

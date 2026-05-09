@@ -1,74 +1,144 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  deleteDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
 
-export default function EventDetailPage() {
+export default function EventPreferencesPage() {
   const router = useRouter();
   const params = useParams();
-
   const eventId = params.id as string;
 
-  const [promStatus, setPromStatus] = useState("");
-  const [lookingFor, setLookingFor] = useState("");
-  const [message, setMessage] = useState("");
+  const [event, setEvent] = useState<any>(null);
+  const [promStatus, setPromStatus] = useState("going");
+  const [lookingFor, setLookingFor] = useState("either");
+  const [currentUserData, setCurrentUserData] = useState<any>(null);
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/");
-        return;
+      try {
+        if (!user) {
+          router.push("/");
+          return;
+        }
+
+        if (!user.emailVerified) {
+          router.push("/verify-email");
+          return;
+        }
+
+        setCurrentUid(user.uid);
+
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+
+        if (!userSnap.exists()) {
+          router.push("/profile/setup");
+          return;
+        }
+
+        const userData = userSnap.data();
+        setCurrentUserData(userData);
+
+        const eventSnap = await getDoc(doc(db, "events", eventId));
+
+        if (!eventSnap.exists()) {
+          setMessage("Event not found.");
+          return;
+        }
+
+        const eventData = eventSnap.data();
+
+        if (eventData.school !== userData.school) {
+          setMessage("You do not have access to this event.");
+          return;
+        }
+
+        setEvent({
+          id: eventSnap.id,
+          ...eventData,
+        });
+
+        const prefSnap = await getDoc(
+          doc(db, "eventPreferences", `${user.uid}_${eventId}`)
+        );
+
+        if (prefSnap.exists()) {
+          const pref = prefSnap.data();
+          setPromStatus(pref.promStatus || "going");
+          setLookingFor(pref.lookingFor || "either");
+        }
+      } catch (error: any) {
+        setMessage(error.message || "Failed to load event preferences.");
+      } finally {
+        setLoading(false);
       }
-
-      const prefId = `${user.uid}_${eventId}`;
-      const prefRef = doc(db, "eventPreferences", prefId);
-      const prefSnap = await getDoc(prefRef);
-
-      if (prefSnap.exists()) {
-        const data = prefSnap.data();
-        setPromStatus(data.promStatus || "");
-        setLookingFor(data.lookingFor || "");
-      }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();
   }, [router, eventId]);
 
   async function savePreferences() {
+    if (!currentUid || !currentUserData || !event) return;
+
+    setSaving(true);
+    setMessage("");
+
     try {
-      const user = auth.currentUser;
+      const prefId = `${currentUid}_${eventId}`;
 
-      if (!user) {
-        setMessage("You must be logged in.");
-        return;
-      }
+      await setDoc(
+        doc(db, "eventPreferences", prefId),
+        {
+          userId: currentUid,
+          eventId,
+          school: currentUserData.school,
+          promStatus,
+          lookingFor,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
-      if (!promStatus || !lookingFor) {
-        setMessage("Complete all fields.");
-        return;
-      }
-
-      const prefId = `${user.uid}_${eventId}`;
-
-      await setDoc(doc(db, "eventPreferences", prefId), {
-        userId: user.uid,
+      const attendeeRef = doc(
+        db,
+        "events",
         eventId,
-        promStatus,
-        lookingFor,
-        createdAt: new Date(),
-      });
+        "attendees",
+        currentUid
+      );
 
-      setMessage("Saved.");
+      if (promStatus === "not-going") {
+        await deleteDoc(attendeeRef);
+      } else {
+        await setDoc(
+          attendeeRef,
+          {
+            uid: currentUid,
+            school: currentUserData.school,
+            joinedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
       router.push(`/people/${eventId}`);
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(error.message || "Failed to save preferences.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -81,59 +151,75 @@ export default function EventDetailPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white">
+    <main className="min-h-screen bg-black p-6 pb-28 text-white">
       <NavMenu />
 
-      <div className="mx-auto max-w-sm rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
-        <h1 className="mb-2 text-3xl font-bold capitalize">
-          {eventId.replace("-", " ")}
-        </h1>
-
-        <p className="mb-6 text-sm text-white/70">
-          Tell us your plan for this event.
-        </p>
-
-        <label className="mb-2 block text-sm text-white/70">
-          Are you going?
-        </label>
-
-        <select
-          className="mb-4 w-full rounded-lg bg-white/10 p-3"
-          value={promStatus}
-          onChange={(e) => setPromStatus(e.target.value)}
-        >
-          <option value="">Select</option>
-          <option value="going">Going</option>
-          <option value="maybe">Maybe</option>
-          <option value="not-going">Not going</option>
-        </select>
-
-        <label className="mb-2 block text-sm text-white/70">
-          What are you looking for?
-        </label>
-
-        <select
-          className="mb-4 w-full rounded-lg bg-white/10 p-3"
-          value={lookingFor}
-          onChange={(e) => setLookingFor(e.target.value)}
-        >
-          <option value="">Select</option>
-          <option value="date">A date</option>
-          <option value="group">A group</option>
-          <option value="either">Either</option>
-          <option value="browsing">Just browsing</option>
-        </select>
-
+      <div className="mx-auto max-w-md">
         <button
-          onClick={savePreferences}
-          className="w-full rounded-lg bg-white p-3 font-semibold text-black"
+          onClick={() => router.back()}
+          className="mb-6 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
         >
-          Continue
+          ← Back
         </button>
 
-        {message && (
-          <p className="mt-4 text-sm text-white/70">{message}</p>
-        )}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
+          {message ? (
+            <p className="text-sm text-red-400">{message}</p>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold">
+                {event?.title || "Event"}
+              </h1>
+
+              <p className="mt-3 text-sm text-white/60">
+                Tell us your plan for this event.
+              </p>
+
+              <div className="mt-8">
+                <label className="mb-2 block text-sm text-white/70" htmlFor="promStatus">
+                  Are you going?
+                </label>
+
+                <select
+                  id="promStatus"
+                  value={promStatus}
+                  onChange={(e) => setPromStatus(e.target.value)}
+                  className="w-full rounded-lg bg-white/10 p-3 text-white outline-none"
+                >
+                  <option value="going">Going</option>
+                  <option value="maybe">Maybe</option>
+                  <option value="not-going">Not going</option>
+                </select>
+              </div>
+
+              <div className="mt-5">
+                <label htmlFor="lookingFor">
+                  What are you looking for?
+                </label>
+
+                <select
+                  id="lookingFor"
+                  value={lookingFor}
+                  onChange={(e) => setLookingFor(e.target.value)}
+                  className="w-full rounded-lg bg-white/10 p-3 text-white outline-none"
+                >
+                  <option value="either">Either</option>
+                  <option value="friends">Friends</option>
+                  <option value="date">Date</option>
+                  <option value="browsing">Just browsing</option>
+                </select>
+              </div>
+
+              <button
+                onClick={savePreferences}
+                disabled={saving}
+                className="mt-6 w-full rounded-lg bg-white p-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Continue"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </main>
   );

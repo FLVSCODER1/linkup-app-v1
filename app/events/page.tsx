@@ -182,7 +182,7 @@ export default function EventsPage() {
                 isJoined={joinedEventIds.includes(event.id)}
                 attendeeCount={attendeeCounts[event.id] || 0}
                 onClick={() => router.push(`/event/${event.id}`)}
-                onToggleJoin={() => handleToggleJoin(event)}
+                {...({ onToggleJoin: () => handleToggleJoin(event) } as any)}
               />
             ))}
           </div>
