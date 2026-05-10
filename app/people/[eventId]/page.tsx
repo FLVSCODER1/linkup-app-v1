@@ -9,8 +9,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  setDoc,
   query,
+  setDoc,
   where,
 } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
@@ -37,96 +37,104 @@ export default function PeoplePage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        router.push("/");
-        return;
-      }
+      try {
+        if (!firebaseUser) {
+          router.push("/");
+          return;
+        }
 
-      const currentUserSnap = await getDoc(
-        doc(db, "users", firebaseUser.uid)
-      );
+        if (!firebaseUser.emailVerified) {
+          router.push("/verify-email");
+          return;
+        }
 
-      if (!currentUserSnap.exists()) {
-        router.push("/profile");
-        return;
-      }
+        const currentUserSnap = await getDoc(
+          doc(db, "users", firebaseUser.uid)
+        );
 
-      const currentUser = currentUserSnap.data();
+        if (!currentUserSnap.exists()) {
+          router.push("/profile/setup");
+          return;
+        }
 
-      const currentPrefSnap = await getDoc(
-        doc(db, "eventPreferences", `${firebaseUser.uid}_${eventId}`)
-      );
+        const currentUser = currentUserSnap.data();
 
-      if (!currentPrefSnap.exists()) {
-        router.push(`/event/${eventId}`);
-        return;
-      }
+        const currentPrefSnap = await getDoc(
+          doc(db, "eventPreferences", `${firebaseUser.uid}_${eventId}`)
+        );
 
-      const currentPref = currentPrefSnap.data();
+        if (!currentPrefSnap.exists()) {
+          router.push(`/event/${eventId}`);
+          return;
+        }
 
-      if (
-        currentPref.promStatus === "not-going" ||
-        currentPref.lookingFor === "browsing"
-      ) {
-        setUsers([]);
-        setMessage("You are not currently matching for this event.");
+        const currentPref = currentPrefSnap.data();
+
+        if (
+          currentPref.promStatus === "not-going" ||
+          currentPref.lookingFor === "browsing"
+        ) {
+          setUsers([]);
+          setMessage("You are not currently matching for this event.");
+          setLoading(false);
+          return;
+        }
+
+        const prefsSnap = await getDocs(collection(db, "eventPreferences"));
+
+        const usersQuery = query(
+          collection(db, "users"),
+          where("school", "==", currentUser.school)
+        );
+
+        const usersSnap = await getDocs(usersQuery);
+
+        const eligiblePrefs = new Map<
+          string,
+          { promStatus: string; lookingFor: string }
+        >();
+
+        prefsSnap.forEach((prefDoc) => {
+          const pref = prefDoc.data();
+
+          if (
+            pref.eventId === eventId &&
+            pref.userId !== firebaseUser.uid &&
+            (pref.promStatus === "going" || pref.promStatus === "maybe") &&
+            pref.lookingFor !== "browsing"
+          ) {
+            eligiblePrefs.set(pref.userId, {
+              promStatus: pref.promStatus,
+              lookingFor: pref.lookingFor,
+            });
+          }
+        });
+
+        const filteredUsers: AppUser[] = [];
+
+        usersSnap.forEach((userDoc) => {
+          const userData = userDoc.data();
+          const pref = eligiblePrefs.get(userDoc.id);
+
+          if (pref && userData.profileComplete) {
+            filteredUsers.push({
+              id: userDoc.id,
+              displayName: userData.displayName,
+              grade: userData.grade,
+              school: userData.school,
+              profileComplete: userData.profileComplete,
+              eventPromStatus: pref.promStatus,
+              eventLookingFor: pref.lookingFor,
+            });
+          }
+        });
+
+        setUsers(filteredUsers);
+      } catch (error: any) {
+        setMessage(error.message || "Failed to load people.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const prefsSnap = await getDocs(collection(db, "eventPreferences"));
-      const usersSnap = await getDocs(
-       query(
-         collection(db, "users"),
-         where("school", "==", currentUser.school)
-        )
-     );
-
-      const eligiblePrefs = new Map<
-        string,
-        { promStatus: string; lookingFor: string }
-      >();
-
-      prefsSnap.forEach((prefDoc) => {
-        const pref = prefDoc.data();
-
-        if (
-          pref.eventId === eventId &&
-          pref.userId !== firebaseUser.uid &&
-          (pref.promStatus === "going" || pref.promStatus === "maybe") &&
-          pref.lookingFor !== "browsing"
-        ) {
-          eligiblePrefs.set(pref.userId, {
-            promStatus: pref.promStatus,
-            lookingFor: pref.lookingFor,
-          });
-        }
-      });
-
-      const filteredUsers: AppUser[] = [];
-
-      usersSnap.forEach((userDoc) => {
-        const userData = userDoc.data();
-        const pref = eligiblePrefs.get(userDoc.id);
-
-        if (
-          pref &&
-          userData.profileComplete
-        ) {
-          filteredUsers.push({
-            id: userDoc.id,
-            displayName: userData.displayName,
-            grade: userData.grade,
-            school: userData.school,
-            profileComplete: userData.profileComplete,
-            eventPromStatus: pref.promStatus,
-            eventLookingFor: pref.lookingFor,
-          });
-        }
-      });
-
-      setUsers(filteredUsers);
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -152,7 +160,7 @@ export default function PeoplePage() {
 
       setMessage("Interest saved privately.");
     } catch (error: any) {
-      setMessage(error.message);
+      setMessage(error.message || "Failed to save interest.");
     }
   }
 
@@ -165,10 +173,17 @@ export default function PeoplePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white">
+    <main className="min-h-screen bg-black p-6 pb-28 text-white">
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
+        <button
+          onClick={() => router.back()}
+          className="mb-6 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
+        >
+          ← Back
+        </button>
+
         <h1 className="mb-2 text-3xl font-bold">
           People for {eventId.replaceAll("-", " ")}
         </h1>

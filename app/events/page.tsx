@@ -6,13 +6,10 @@ import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
   query,
-  serverTimestamp,
-  setDoc,
   where,
 } from "firebase/firestore";
 import NavMenu from "../components/NavMenu";
@@ -23,8 +20,6 @@ export default function EventsPage() {
 
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
-  const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [joinedEventIds, setJoinedEventIds] = useState<string[]>([]);
   const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>(
     {}
@@ -56,9 +51,6 @@ export default function EventsPage() {
           router.push("/profile/setup");
           return;
         }
-
-        setCurrentUid(user.uid);
-        setCurrentUserData(currentUser);
 
         const eventsQuery = query(
           collection(db, "events"),
@@ -104,50 +96,6 @@ export default function EventsPage() {
     return () => unsubscribe();
   }, [router]);
 
-  async function handleToggleJoin(event: any) {
-    if (!currentUid || !currentUserData || !event?.id) return;
-
-    const attendeeRef = doc(
-      db,
-      "events",
-      event.id,
-      "attendees",
-      currentUid
-    );
-
-    const alreadyJoined = joinedEventIds.includes(event.id);
-
-    try {
-      if (alreadyJoined) {
-        await deleteDoc(attendeeRef);
-
-        setJoinedEventIds((prev) =>
-          prev.filter((id) => id !== event.id)
-        );
-
-        setAttendeeCounts((prev) => ({
-          ...prev,
-          [event.id]: Math.max((prev[event.id] || 1) - 1, 0),
-        }));
-      } else {
-        await setDoc(attendeeRef, {
-          uid: currentUid,
-          school: currentUserData.school,
-          joinedAt: serverTimestamp(),
-        });
-
-        setJoinedEventIds((prev) => [...prev, event.id]);
-
-        setAttendeeCounts((prev) => ({
-          ...prev,
-          [event.id]: (prev[event.id] || 0) + 1,
-        }));
-      }
-    } catch (error) {
-      console.error("Error toggling attendance:", error);
-    }
-  }
-
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
@@ -181,8 +129,8 @@ export default function EventsPage() {
                 event={event}
                 isJoined={joinedEventIds.includes(event.id)}
                 attendeeCount={attendeeCounts[event.id] || 0}
-                onClick={() => router.push(`/event/${event.id}`)}
-                {...({ onToggleJoin: () => handleToggleJoin(event) } as any)}
+                onClick={() => router.push(`/events/${event.id}`)}
+                onJoinClick={() => router.push(`/event/${event.id}`)}
               />
             ))}
           </div>
@@ -192,22 +140,9 @@ export default function EventsPage() {
       <button
         onClick={() => router.push("/events/new")}
         className="
-          fixed
-          bottom-6
-          left-1/2
-          z-50
-          -translate-x-1/2
-          rounded-full
-          bg-white
-          px-6
-          py-3
-          text-sm
-          font-semibold
-          text-black
-          shadow-2xl
-          transition
-          hover:scale-105
-          active:scale-95
+          fixed bottom-6 left-1/2 z-50 -translate-x-1/2
+          rounded-full bg-white px-6 py-3 text-sm font-semibold
+          text-black shadow-2xl transition hover:scale-105 active:scale-95
         "
       >
         + Post Event
@@ -216,25 +151,9 @@ export default function EventsPage() {
       <button
         onClick={() => router.push("/events/import-calendar")}
         className="
-          fixed
-          bottom-6
-          right-6
-          z-50
-          rounded-full
-          border
-          border-white/10
-          bg-black/80
-          px-3
-          py-2
-          text-xs
-          font-semibold
-          text-white
-          shadow-xl
-          backdrop-blur
-          transition
-          hover:scale-105
-          hover:bg-white/10
-          active:scale-95
+          fixed bottom-6 right-6 z-50 rounded-full border border-white/10
+          bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-xl
+          backdrop-blur transition hover:scale-105 hover:bg-white/10 active:scale-95
         "
       >
         Import

@@ -37,6 +37,7 @@ export default function EventDetailsPage() {
         }
 
         const currentUser = userSnap.data();
+
         const eventSnap = await getDoc(doc(db, "events", eventId));
 
         if (!eventSnap.exists()) {

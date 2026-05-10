@@ -76,8 +76,7 @@ export default function LoginPage() {
         return;
       }
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await getDoc(doc(db, "users", user.uid));
 
       if (!userSnap.exists()) {
         router.push("/profile/setup");

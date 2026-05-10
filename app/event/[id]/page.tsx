@@ -176,7 +176,7 @@ export default function EventPreferencesPage() {
               </p>
 
               <div className="mt-8">
-                <label className="mb-2 block text-sm text-white/70" htmlFor="promStatus">
+                <label htmlFor="promStatus" className="mb-2 block text-sm text-white/70">
                   Are you going?
                 </label>
 
@@ -193,7 +193,7 @@ export default function EventPreferencesPage() {
               </div>
 
               <div className="mt-5">
-                <label htmlFor="lookingFor">
+                <label htmlFor="lookingFor" className="mb-2 block text-sm text-white/70">
                   What are you looking for?
                 </label>
 
