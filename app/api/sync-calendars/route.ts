@@ -3,7 +3,6 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
 type CalendarVisibility = "district" | "school";
 
@@ -12,7 +11,7 @@ type CalendarSource = {
   active: boolean;
   district: string;
   school: string | null;
-  sourceType: string;
+  sourceType: "ics";
   sourceUrl: string;
   visibility: CalendarVisibility;
 };
@@ -42,13 +41,14 @@ function unfoldIcs(text: string): string {
 function getIcsValue(block: string, field: string): string {
   const regex = new RegExp(`^${field}(?:;[^:]*)?:(.*)$`, "im");
   const match = block.match(regex);
+
   return match?.[1]?.trim() || "";
 }
 
 function parseIcsDate(value: string): Date | null {
-  if (!value) return null;
-
   const cleaned = value.trim();
+
+  if (!cleaned) return null;
 
   let match = cleaned.match(
     /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/
@@ -84,14 +84,29 @@ function parseIcsDate(value: string): Date | null {
     );
   }
 
+  match = cleaned.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})$/);
+
+  if (match) {
+    const [, year, month, day, hour, minute] = match;
+
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      0
+    );
+  }
+
   match = cleaned.match(/^(\d{4})(\d{2})(\d{2})$/);
 
   if (match) {
     const [, year, month, day] = match;
+
     return new Date(Number(year), Number(month) - 1, Number(day));
   }
 
-  console.warn("Unsupported ICS date:", value);
   return null;
 }
 
@@ -101,16 +116,23 @@ function parseIcsEvents(icsText: string): ParsedIcsEvent[] {
 
   return blocks
     .map((block) => {
-      const startTime = parseIcsDate(getIcsValue(block, "DTSTART"));
-      const endTime = parseIcsDate(getIcsValue(block, "DTEND"));
+      const uid = cleanText(getIcsValue(block, "UID"));
+      const title = cleanText(getIcsValue(block, "SUMMARY"));
+      const description = cleanText(getIcsValue(block, "DESCRIPTION"));
+      const location = cleanText(getIcsValue(block, "LOCATION"));
+      const startValue = getIcsValue(block, "DTSTART");
+      const endValue = getIcsValue(block, "DTEND");
+
+      const startTime = parseIcsDate(startValue);
+      const endTime = parseIcsDate(endValue);
 
       if (!startTime) return null;
 
       return {
-        uid: getIcsValue(block, "UID"),
-        title: cleanText(getIcsValue(block, "SUMMARY")) || "Untitled event",
-        description: cleanText(getIcsValue(block, "DESCRIPTION")),
-        location: cleanText(getIcsValue(block, "LOCATION")),
+        uid,
+        title: title || "Untitled event",
+        description,
+        location,
         startTime,
         endTime,
       };
@@ -126,26 +148,130 @@ function buildSourceId(sourceUrl: string, event: ParsedIcsEvent): string {
   return `${sourceUrl}::${event.title}::${event.startTime.toISOString()}`;
 }
 
-async function getCalendarSources(): Promise<CalendarSource[]> {
-  const snap = await adminDb.collection("calendarSources").get();
+function normalizeCalendarSource(
+  id: string,
+  data: FirebaseFirestore.DocumentData
+): CalendarSource | null {
+  const active = data.active === true;
+  const district = typeof data.district === "string" ? data.district.trim() : "";
+  const school = typeof data.school === "string" ? data.school.trim() : null;
+  const sourceType = data.sourceType;
+  const sourceUrl =
+    typeof data.sourceUrl === "string" ? data.sourceUrl.trim() : "";
+  const visibility: CalendarVisibility =
+    data.visibility === "school" ? "school" : "district";
 
-  console.log("calendarSources total:", snap.size);
+  if (!active) return null;
+  if (sourceType !== "ics") return null;
+  if (!district) return null;
+  if (!sourceUrl) return null;
 
-  return snap.docs
-    .map((doc) => {
-      const data = doc.data();
+  return {
+    id,
+    active,
+    district,
+    school,
+    sourceType: "ics",
+    sourceUrl,
+    visibility,
+  };
+}
 
-      return {
-        id: doc.id,
-        active: data.active === true,
-        district: String(data.district || ""),
-        school: data.school ? String(data.school) : null,
-        sourceType: String(data.sourceType || ""),
-        sourceUrl: String(data.sourceUrl || ""),
-        visibility: (data.visibility === "school" ? "school" : "district") as CalendarVisibility,
-      };
-    })
-    .filter((source) => source.active && source.sourceType === "ics");
+async function fetchIcsText(sourceUrl: string): Promise<string> {
+  const response = await fetch(sourceUrl, {
+    headers: {
+      "User-Agent": "LinkUp Calendar Sync",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`ICS fetch failed with status ${response.status}`);
+  }
+
+  return response.text();
+}
+
+async function eventAlreadyExists(sourceId: string): Promise<boolean> {
+  const existingSnap = await adminDb
+    .collection("events")
+    .where("sourceId", "==", sourceId)
+    .limit(1)
+    .get();
+
+  return !existingSnap.empty;
+}
+
+async function createImportedEvent(
+  source: CalendarSource,
+  event: ParsedIcsEvent,
+  sourceId: string
+): Promise<void> {
+  await adminDb.collection("events").add({
+    title: event.title,
+    description: event.description,
+    location: event.location,
+
+    district: source.district,
+    school: source.school,
+    visibility: source.visibility,
+
+    source: "ics",
+    sourceType: "ics",
+    sourceUrl: source.sourceUrl,
+    sourceId,
+    imported: true,
+
+    status: "published",
+    needsReview: false,
+
+    startTime: Timestamp.fromDate(event.startTime),
+    endTime: event.endTime ? Timestamp.fromDate(event.endTime) : null,
+
+    attendeeCount: 0,
+
+    createdBy: "system",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    publishedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+async function syncSource(source: CalendarSource) {
+  const icsText = await fetchIcsText(source.sourceUrl);
+  const parsedEvents = parseIcsEvents(icsText);
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const event of parsedEvents) {
+    const sourceId = buildSourceId(source.sourceUrl, event);
+    const exists = await eventAlreadyExists(sourceId);
+
+    if (exists) {
+      skipped++;
+      continue;
+    }
+
+    await createImportedEvent(source, event, sourceId);
+    created++;
+  }
+
+  await adminDb.collection("calendarSources").doc(source.id).update({
+    lastSyncedAt: FieldValue.serverTimestamp(),
+    lastSyncStatus: "success",
+    lastSyncParsedCount: parsedEvents.length,
+    lastSyncCreatedCount: created,
+    lastSyncSkippedCount: skipped,
+    lastSyncError: null,
+  });
+
+  return {
+    sourceId: source.id,
+    parsed: parsedEvents.length,
+    created,
+    skipped,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -156,111 +282,68 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sources = await getCalendarSources();
+    const sourcesSnap = await adminDb.collection("calendarSources").get();
 
-    let created = 0;
-    let skipped = 0;
-    const errors: string[] = [];
+    const sources = sourcesSnap.docs
+      .map((sourceDoc) =>
+        normalizeCalendarSource(sourceDoc.id, sourceDoc.data())
+      )
+      .filter((source): source is CalendarSource => source !== null);
+
+    let totalCreated = 0;
+    let totalSkipped = 0;
+    let totalParsed = 0;
+
+    const sourceResults = [];
+    const errors = [];
 
     for (const source of sources) {
-      if (!source.district || !source.sourceUrl) {
-        errors.push(`Invalid source config: ${source.id}`);
-        continue;
-      }
-
       try {
-        const response = await fetch(source.sourceUrl, {
-          cache: "no-store",
-        });
+        const result = await syncSource(source);
 
-        if (!response.ok) {
-          throw new Error(`ICS fetch failed with status ${response.status}`);
-        }
+        totalCreated += result.created;
+        totalSkipped += result.skipped;
+        totalParsed += result.parsed;
 
-        const icsText = await response.text();
-        const parsedEvents = parseIcsEvents(icsText);
-
-        console.log("ICS parsed:", {
-          sourceId: source.id,
-          hasVevent: icsText.includes("BEGIN:VEVENT"),
-          parsedCount: parsedEvents.length,
-        });
-
-        for (const event of parsedEvents) {
-          const sourceId = buildSourceId(source.sourceUrl, event);
-
-          const existingSnap = await adminDb
-            .collection("events")
-            .where("sourceId", "==", sourceId)
-            .limit(1)
-            .get();
-
-          if (!existingSnap.empty) {
-            skipped++;
-            continue;
-          }
-
-          await adminDb.collection("events").add({
-            title: event.title,
-            description: event.description,
-            location: event.location,
-
-            district: source.district,
-            school: source.school,
-            visibility: source.visibility,
-
-            source: "ics",
-            sourceType: "ics",
-            sourceUrl: source.sourceUrl,
-            sourceId,
-            imported: true,
-
-            status: "published",
-            needsReview: false,
-
-            startTime: Timestamp.fromDate(event.startTime),
-            endTime: event.endTime ? Timestamp.fromDate(event.endTime) : null,
-
-            attendeeCount: 0,
-
-            createdBy: "system",
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-
-          created++;
-        }
-
-        await adminDb.collection("calendarSources").doc(source.id).update({
-          lastSyncedAt: FieldValue.serverTimestamp(),
-          lastSyncStatus: "success",
-          lastSyncCreatedCount: created,
-          lastSyncSkippedCount: skipped,
-        });
+        sourceResults.push(result);
       } catch (error) {
-        console.error("Source sync failed:", source.id, error);
+        const message =
+          error instanceof Error ? error.message : "Unknown sync error";
 
-        errors.push(`Failed source: ${source.id}`);
+        errors.push({
+          sourceId: source.id,
+          error: message,
+        });
 
         await adminDb.collection("calendarSources").doc(source.id).update({
           lastSyncedAt: FieldValue.serverTimestamp(),
           lastSyncStatus: "error",
+          lastSyncError: message,
         });
       }
     }
 
     return NextResponse.json({
       success: true,
-      sourcesChecked: sources.length,
-      created,
-      skipped,
+      sourcesTotal: sourcesSnap.size,
+      sourcesSynced: sources.length,
+      parsed: totalParsed,
+      created: totalCreated,
+      skipped: totalSkipped,
       errors,
+      sourceResults,
     });
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Calendar sync failed.";
+
     console.error("Calendar sync failed:", error);
 
     return NextResponse.json(
-      { error: "Calendar sync failed." },
+      {
+        success: false,
+        error: message,
+      },
       { status: 500 }
     );
   }

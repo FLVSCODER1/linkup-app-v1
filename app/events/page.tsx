@@ -1,143 +1,169 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { onAuthStateChanged, type User } from "firebase/auth";
+
+import { auth } from "../lib/firebase";
 import NavMenu from "../components/NavMenu";
 import EventCard from "../components/EventCard";
+
+import { getUserProfile, getVisibleFeedEvents } from "../lib/events/queries";
+import type { FeedEvent, UserProfile } from "../lib/events/types";
 
 export default function EventsPage() {
   const router = useRouter();
 
-  const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [joinedEventIds, setJoinedEventIds] = useState<string[]>([]);
-  const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>(
-    {}
-  );
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [events, setEvents] = useState<FeedEvent[]>([]);
+
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setProfile(null);
+      setEvents([]);
+      setError(null);
+
+      if (!currentUser) {
+        router.push("/");
+        return;
+      }
+
+      if (!currentUser.emailVerified) {
+        router.push("/verify-email");
+        return;
+      }
+
       try {
-        if (!user) {
-          router.push("/");
-          return;
-        }
+        setLoadingProfile(true);
 
-        if (!user.emailVerified) {
-          router.push("/verify-email");
-          return;
-        }
+        const loadedProfile = await getUserProfile(currentUser.uid);
 
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-
-        if (!userSnap.exists()) {
+        if (!loadedProfile?.school && !loadedProfile?.district) {
           router.push("/profile/setup");
           return;
         }
 
-        const currentUser = userSnap.data();
-
-        if (!currentUser.school) {
-          router.push("/profile/setup");
-          return;
-        }
-
-        const eventsQuery = query(
-          collection(db, "events"),
-          where("school", "==", currentUser.school)
-        );
-
-        const eventsSnap = await getDocs(eventsQuery);
-
-        const schoolEvents = eventsSnap.docs.map((eventDoc) => ({
-          id: eventDoc.id,
-          ...eventDoc.data(),
-        }));
-
-        const joinedIds: string[] = [];
-        const counts: Record<string, number> = {};
-
-        for (const event of schoolEvents) {
-          const attendeesSnap = await getDocs(
-            collection(db, "events", event.id, "attendees")
-          );
-
-          counts[event.id] = attendeesSnap.size;
-
-          const userIsAttending = attendeesSnap.docs.some(
-            (attendee) => attendee.id === user.uid
-          );
-
-          if (userIsAttending) {
-            joinedIds.push(event.id);
-          }
-        }
-
-        setEvents(schoolEvents);
-        setJoinedEventIds(joinedIds);
-        setAttendeeCounts(counts);
-      } catch (error) {
-        console.error("Error loading events:", error);
+        setProfile(loadedProfile);
+      } catch (err) {
+        console.error("Error loading profile:", err);
+        setError("Could not load your profile.");
       } finally {
-        setLoading(false);
+        setLoadingProfile(false);
       }
     });
 
     return () => unsubscribe();
   }, [router]);
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
-        <p className="text-white/70">Loading events...</p>
-      </main>
-    );
-  }
+  useEffect(() => {
+    async function loadEvents() {
+      if (!user || loadingProfile || !profile) return;
+
+      try {
+        setLoadingEvents(true);
+        setError(null);
+
+        const visibleEvents = await getVisibleFeedEvents(profile);
+        setEvents(visibleEvents);
+      } catch (err) {
+        console.error("Error loading events:", err);
+        setError(
+          "Could not load events. Firestore may need a composite index, because databases apparently require paperwork."
+        );
+      } finally {
+        setLoadingEvents(false);
+      }
+    }
+
+    loadEvents();
+  }, [user, profile, loadingProfile]);
+
+  const loading = loadingProfile || loadingEvents;
+
+  const subtitle = useMemo(() => {
+    if (!profile?.district) {
+      return "Finish your profile to see events near your school.";
+    }
+
+    if (profile.school) {
+      return `Showing school and district events for ${profile.school}.`;
+    }
+
+    return `Showing district events for ${profile.district}.`;
+  }, [profile]);
 
   return (
     <main className="min-h-screen bg-black p-6 pb-28 text-white">
       <NavMenu />
 
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6">
-          <h1 className="mb-2 text-3xl font-bold">Events</h1>
-
-          <p className="text-sm text-white/70">
-            Find school events and choose how you want to attend.
+      <section className="mx-auto max-w-2xl">
+        <header className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+            LinkUp
           </p>
-        </div>
 
-        {events.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="text-white/70">No events found yet.</p>
+          <h1 className="text-3xl font-bold">Events</h1>
+
+          <p className="mt-2 text-sm text-white/70">{subtitle}</p>
+        </header>
+
+        {error && (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/5"
+              />
+            ))}
+          </div>
+        ) : events.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h2 className="text-lg font-semibold">No upcoming events found</h2>
+
+            <p className="mt-2 text-sm text-white/70">
+              Imported calendars may be synced, but nothing relevant is ready for
+              the feed yet. The temporary filter is also suppressing low-value
+              calendar junk like practices, buses, lockers, and other thrilling
+              achievements of institutional scheduling.
+            </p>
           </div>
         ) : (
           <div className="grid gap-4">
             {events.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                isJoined={joinedEventIds.includes(event.id)}
-                attendeeCount={attendeeCounts[event.id] || 0}
-                onClick={() => router.push(`/events/${event.id}`)}
-                onJoinClick={() => router.push(`/event/${event.id}`)}
-              />
+              <div key={event.id} className="relative">
+                {event.imported || event.source === "ics" ? (
+                  <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
+                    Imported
+                  </div>
+                ) : null}
+
+                <EventCard
+                  event={event}
+                  isJoined={false}
+                  attendeeCount={event.attendeeCount ?? 0}
+                  onClick={() => router.push(`/events/${event.id}`)}
+                  onJoinClick={() => router.push(`/event/${event.id}`)}
+                />
+              </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       <button
+        type="button"
         onClick={() => router.push("/events/new")}
         className="
           fixed bottom-6 left-1/2 z-50 -translate-x-1/2
@@ -149,6 +175,7 @@ export default function EventsPage() {
       </button>
 
       <button
+        type="button"
         onClick={() => router.push("/events/import-calendar")}
         className="
           fixed bottom-6 right-6 z-50 rounded-full border border-white/10
