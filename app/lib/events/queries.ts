@@ -13,7 +13,8 @@ import {
 
 import { rankFeedEvents } from "./ranking";
 import { db } from "../firebase";
-import { applyTemporaryFeedSuppression, removeDuplicateEvents } from "./filter";
+import { removeDuplicateEvents } from "./filter";
+import { applyModerationFilter } from "./moderation";
 import { formatEventDateRange } from "./date";
 import type { FeedEvent, UserProfile } from "./types";
 
@@ -77,7 +78,7 @@ export async function getVisibleFeedEvents(
   );
 
   return rankFeedEvents(
-    applyTemporaryFeedSuppression(removeDuplicateEvents(events)),
+    applyModerationFilter(removeDuplicateEvents(events)),
     profile
   );
 }

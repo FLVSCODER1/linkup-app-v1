@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+
 import { adminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
@@ -120,6 +121,7 @@ function parseIcsEvents(icsText: string): ParsedIcsEvent[] {
       const title = cleanText(getIcsValue(block, "SUMMARY"));
       const description = cleanText(getIcsValue(block, "DESCRIPTION"));
       const location = cleanText(getIcsValue(block, "LOCATION"));
+
       const startValue = getIcsValue(block, "DTSTART");
       const endValue = getIcsValue(block, "DTEND");
 
@@ -158,6 +160,7 @@ function normalizeCalendarSource(
   const sourceType = data.sourceType;
   const sourceUrl =
     typeof data.sourceUrl === "string" ? data.sourceUrl.trim() : "";
+
   const visibility: CalendarVisibility =
     data.visibility === "school" ? "school" : "district";
 
@@ -224,6 +227,13 @@ async function createImportedEvent(
 
     status: "published",
     needsReview: false,
+
+    moderationStatus: "auto_approved",
+    suppressionReason: null,
+    relevanceScore: 0,
+    aiCategory: "uncategorized",
+    reviewedAt: null,
+    reviewedBy: null,
 
     startTime: Timestamp.fromDate(event.startTime),
     endTime: event.endTime ? Timestamp.fromDate(event.endTime) : null,
