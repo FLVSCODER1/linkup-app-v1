@@ -1,26 +1,59 @@
-import { getApps, initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { NextRequest, NextResponse } from "next/server";
+import { getAuth } from "firebase-admin/auth";
+import { initializeApp } from "firebase-admin/app";
 
-function getFirebaseAdminApp() {
-  if (getApps().length > 0) {
-    return getApps()[0];
-  }
+const adminApp = initializeApp();
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+export const dynamic = "force-dynamic";
 
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error("Missing Firebase Admin environment variables.");
-  }
+function isAuthorized(request: NextRequest): boolean {
+  const expectedSecret = process.env.DEV_VERIFY_SECRET;
 
-  return initializeApp({
-    credential: cert({
-      projectId,
-      clientEmail,
-      privateKey,
-    }),
-  });
+  if (!expectedSecret) return false;
+
+  return request.headers.get("authorization") === `Bearer ${expectedSecret}`;
 }
 
-export const adminDb = getFirestore(getFirebaseAdminApp());
+export async function POST(request: NextRequest) {
+  try {
+    if (!isAuthorized(request)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const uid = body?.uid;
+
+    if (!uid || typeof uid !== "string") {
+      return NextResponse.json(
+        { success: false, error: "Missing or invalid uid" },
+        { status: 400 }
+      );
+    }
+
+    await getAuth(adminApp).updateUser(uid, {
+      emailVerified: true,
+    });
+
+    return NextResponse.json({
+      success: true,
+      uid,
+      emailVerified: true,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to verify user.";
+
+    console.error("Dev verify user failed:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: message,
+      },
+      { status: 500 }
+    );
+  }
+}

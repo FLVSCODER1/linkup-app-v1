@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
+import { initializeApp } from "firebase-admin/app";
 
-import { adminDb } from "@/app/lib/firebase-admin";
+const adminApp = initializeApp();
+const adminDb = getFirestore(adminApp);
 
 export const dynamic = "force-dynamic";
 
@@ -295,10 +297,10 @@ export async function GET(request: NextRequest) {
     const sourcesSnap = await adminDb.collection("calendarSources").get();
 
     const sources = sourcesSnap.docs
-      .map((sourceDoc) =>
+      .map((sourceDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) =>
         normalizeCalendarSource(sourceDoc.id, sourceDoc.data())
       )
-      .filter((source): source is CalendarSource => source !== null);
+      .filter((source: CalendarSource | null): source is CalendarSource => source !== null);
 
     let totalCreated = 0;
     let totalSkipped = 0;
