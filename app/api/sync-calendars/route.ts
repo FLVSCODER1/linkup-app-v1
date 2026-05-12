@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue, Timestamp, getFirestore } from "firebase-admin/firestore";
-import { initializeApp } from "firebase-admin/app";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-const adminApp = initializeApp();
-const adminDb = getFirestore(adminApp);
+import { adminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 
+import { adminApp } from "@/app/lib/firebase-admin";
+
 export const dynamic = "force-dynamic";
 
 function isAuthorized(request: NextRequest): boolean {
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await getAuth().updateUser(uid, {
+    await getAuth(adminApp).updateUser(uid, {
       emailVerified: true,
     });
 
