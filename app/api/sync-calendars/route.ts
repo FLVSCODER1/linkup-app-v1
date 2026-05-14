@@ -289,16 +289,19 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
 
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const sourcesSnap = await adminDb.collection("calendarSources").get();
 
     const sources = sourcesSnap.docs
-      .map((sourceDoc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>) =>
+      .map((sourceDoc) =>
         normalizeCalendarSource(sourceDoc.id, sourceDoc.data())
       )
-      .filter((source: CalendarSource | null): source is CalendarSource => source !== null);
+      .filter((source): source is CalendarSource => source !== null);
 
     let totalCreated = 0;
     let totalSkipped = 0;
