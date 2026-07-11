@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
 import { auth } from "../lib/firebase";
+import { hasVerifiedAccount } from "../lib/auth/verification";
 import NavMenu from "../components/layout/NavMenu";
 import EventCard from "../components/events/EventCard";
 
@@ -34,7 +35,7 @@ export default function EventsPage() {
         return;
       }
 
-      if (!currentUser.emailVerified) {
+      if (!(await hasVerifiedAccount(currentUser, true))) {
         router.push("/verify-email");
         return;
       }

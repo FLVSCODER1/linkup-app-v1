@@ -8,6 +8,7 @@ import { doc, getDoc } from "firebase/firestore";
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 import { canUserAccessEvent } from "../../lib/events/access";
 import type { FeedEvent, UserProfile } from "../../lib/events/types";
 
@@ -28,7 +29,7 @@ export default function EventDetailsPage() {
           return;
         }
 
-        if (!user.emailVerified) {
+        if (!(await hasVerifiedAccount(user, true))) {
           router.push("/verify-email");
           return;
         }

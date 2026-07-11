@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import NavMenu from "../components/layout/NavMenu";
 import { getErrorMessage } from "../lib/errors";
+import { hasVerifiedAccount } from "../lib/auth/verification";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function ProfilePage() {
         return;
       }
 
-      if (!user.emailVerified) {
+      if (!(await hasVerifiedAccount(user, true))) {
         router.replace("/verify-email");
         return;
       }

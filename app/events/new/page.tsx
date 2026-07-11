@@ -14,6 +14,7 @@ import {
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 import type { UserProfile } from "../../lib/events/types";
 
 function slugify(text: string) {
@@ -42,7 +43,7 @@ export default function NewEventPage() {
         return;
       }
 
-      if (!user.emailVerified) {
+      if (!(await hasVerifiedAccount(user, true))) {
         router.replace("/verify-email");
         return;
       }

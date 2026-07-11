@@ -4,22 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { getSchoolContext } from "../../lib/auth/schools";
-import { getErrorMessage } from "../../lib/errors";
-
-const interestOptions = [
-  "Sports",
-  "Music",
-  "Gaming",
-  "Art",
-  "STEM",
-  "Volunteering",
-  "Clubs",
-  "Theater",
-  "Business",
-  "Fitness",
-];
+import { doc, getDoc } from "firebase/firestore";
+import {
+  PROFILE_INTERESTS,
+  validateProfileSetupInput,
+} from "../../lib/auth/profile-validation";
+import type { SchoolDirectoryContext } from "../../lib/auth/school-directory";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
@@ -29,6 +20,9 @@ export default function ProfileSetupPage() {
   const [bio, setBio] = useState("");
   const [grade, setGrade] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
+  const [schoolId, setSchoolId] = useState("");
+  const [schoolContext, setSchoolContext] =
+    useState<SchoolDirectoryContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -40,7 +34,7 @@ export default function ProfileSetupPage() {
         return;
       }
 
-      if (!firebaseUser.emailVerified) {
+      if (!(await hasVerifiedAccount(firebaseUser, true))) {
         router.push("/verify-email");
         return;
       }
@@ -48,25 +42,12 @@ export default function ProfileSetupPage() {
       const userRef = doc(db, "users", firebaseUser.uid);
       const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists() && userSnap.data().profileComplete) {
-        const existingProfile = userSnap.data();
-
-        if (!existingProfile.district && firebaseUser.email) {
-          const schoolContext = getSchoolContext(firebaseUser.email);
-
-          if (schoolContext) {
-            await setDoc(
-              userRef,
-              {
-                district: schoolContext.district,
-                school: schoolContext.school,
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
-            );
-          }
-        }
-
+      if (
+        userSnap.exists() &&
+        userSnap.data().profileComplete &&
+        userSnap.data().district &&
+        userSnap.data().school
+      ) {
         router.push("/events");
         return;
       }
@@ -78,6 +59,34 @@ export default function ProfileSetupPage() {
         setBio(data.bio || "");
         setGrade(data.grade || "");
         setInterests(data.interests || []);
+        setSchoolId(data.schoolId || "");
+      }
+
+      if (!firebaseUser.email) {
+        setMessage("Your account does not have an email address.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/auth/school-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: firebaseUser.email }),
+      });
+      const directoryData = (await response.json()) as {
+        context?: SchoolDirectoryContext;
+        error?: string;
+      };
+
+      if (!response.ok || !directoryData.context) {
+        setMessage(directoryData.error || "Your school is not supported yet.");
+        setLoading(false);
+        return;
+      }
+
+      setSchoolContext(directoryData.context);
+      if (directoryData.context.schools.length === 1) {
+        setSchoolId(directoryData.context.schools[0].id);
       }
 
       setUser(firebaseUser);
@@ -112,34 +121,38 @@ export default function ProfileSetupPage() {
     setMessage("");
 
     try {
-      const schoolContext = getSchoolContext(user.email);
+      const validation = validateProfileSetupInput({
+        displayName,
+        bio,
+        grade,
+        interests,
+        schoolId,
+      });
 
-      if (!schoolContext) {
-        setMessage("This school email is not supported yet.");
+      if (!validation.valid) {
+        setMessage(validation.error);
         return;
       }
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          uid: user.uid,
-          email: user.email,
-          district: schoolContext.district,
-          school: schoolContext.school,
-          displayName: displayName.trim(),
-          bio: bio.trim(),
-          grade,
-          interests,
-          profileComplete: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+      const token = await user.getIdToken(true);
+      const response = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        { merge: true }
-      );
+        body: JSON.stringify(validation.value),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setMessage(data.error || "We couldn't save your profile.");
+        return;
+      }
 
       router.push("/events");
-    } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to save profile."));
+    } catch {
+      setMessage("We couldn't save your profile.");
     } finally {
       setSaving(false);
     }
@@ -165,6 +178,30 @@ export default function ProfileSetupPage() {
         </div>
 
         <div className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              School
+            </label>
+            <select
+              value={schoolId}
+              onChange={(event) => setSchoolId(event.target.value)}
+              disabled={!schoolContext || schoolContext.schools.length === 1}
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30 disabled:opacity-70"
+            >
+              <option value="">Select your school</option>
+              {schoolContext?.schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+            {schoolContext && (
+              <p className="mt-2 text-xs text-white/50">
+                {schoolContext.districtName}
+              </p>
+            )}
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-medium text-white/80">
               Display name
@@ -214,7 +251,7 @@ export default function ProfileSetupPage() {
             </label>
 
             <div className="flex flex-wrap gap-2">
-              {interestOptions.map((interest) => {
+              {PROFILE_INTERESTS.map((interest) => {
                 const selected = interests.includes(interest);
 
                 return (

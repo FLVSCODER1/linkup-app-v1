@@ -15,6 +15,7 @@ import BackButton from "../../../components/ui/BackButton";
 import NavMenu from "../../../components/layout/NavMenu";
 import { auth, db } from "../../../lib/firebase";
 import { getErrorMessage } from "../../../lib/errors";
+import { hasVerifiedAccount } from "../../../lib/auth/verification";
 import { canUserAccessEvent } from "../../../lib/events/access";
 import type { FeedEvent, UserProfile } from "../../../lib/events/types";
 import type { EventPreferenceDocument } from "../../../lib/firestore/types";
@@ -46,7 +47,7 @@ export default function EventPreferencesPage() {
           return;
         }
 
-        if (!user.emailVerified) {
+        if (!(await hasVerifiedAccount(user, true))) {
           router.replace("/verify-email");
           return;
         }
@@ -250,4 +251,3 @@ export default function EventPreferencesPage() {
     </main>
   );
 }
-

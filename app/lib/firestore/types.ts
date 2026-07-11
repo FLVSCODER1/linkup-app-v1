@@ -12,10 +12,57 @@ export interface UserProfileDocument {
   grade: GradeLevel;
   interests: string[];
   district: string | null;
+  districtId?: string | null;
   school: string | null;
+  schoolId?: string | null;
   profileComplete: boolean;
   createdAt: FirestoreDate;
   updatedAt: FirestoreDate;
+}
+
+export interface DistrictDirectoryDocument {
+  active: boolean;
+  name: string;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
+}
+
+export interface SchoolDomainDirectoryDocument {
+  active: boolean;
+  districtId: string;
+  schoolId: string | null;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
+}
+
+export interface SchoolDirectoryDocument {
+  active: boolean;
+  districtId: string;
+  name: string;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
+}
+
+export type AccountVerificationStatus = "pending" | "approved" | "rejected";
+export type ManualReviewMethod =
+  | "official_roster"
+  | "in_person"
+  | "school_staff_confirmation";
+
+export interface AccountVerificationDocument {
+  uid: string;
+  email: string;
+  emailDomain: string;
+  districtId: string;
+  district: string;
+  schoolId: string;
+  school: string;
+  status: AccountVerificationStatus;
+  requestedAt: FirestoreDate;
+  reviewedAt: FirestoreDate;
+  reviewedBy: string | null;
+  reviewMethod: ManualReviewMethod | null;
+  rejectionReason: string | null;
 }
 
 export type EventVisibility = "district" | "school" | "public";
@@ -97,4 +144,3 @@ export interface CalendarSourceDocument {
   lastSyncSkippedCount?: number;
   lastSyncError?: string | null;
 }
-

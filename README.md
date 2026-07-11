@@ -12,6 +12,8 @@ The app is a Next.js 16 application backed by Firebase Authentication and Firest
 - Every feature must improve discovery, organization, connection around a real activity, or student safety.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md) for the complete product identity and acceptance rule.
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for the dynamic school
+directory and manual-verification policy.
 
 ## Local development
 
@@ -59,6 +61,6 @@ That command runs unit tests, strict lint, TypeScript, and a production build. I
 
 ## Current constraints
 
-- End-to-end authentication, Firestore, calendar-sync, and RSVP flows still require a dedicated Firebase test project.
-- Firestore feed indexes are versioned in `firestore.indexes.json` and must be deployed to each Firebase environment. Firestore rules still need to be recovered, audited, tested, and committed before launch.
+- End-to-end authentication, calendar-sync, and RSVP flows still require a dedicated Firebase test project. Firestore trust boundaries have automated Emulator coverage.
+- Firestore rules and feed indexes are versioned, Emulator-tested, and must be deployed to each Firebase environment.
 - `/api/dev/verify-user` is a preview/development-only test helper and must never be enabled in production.

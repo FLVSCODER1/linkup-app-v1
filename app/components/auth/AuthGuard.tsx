@@ -6,6 +6,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 import { auth } from "../../lib/firebase";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -21,13 +22,16 @@ export default function AuthGuard({
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         router.replace("/");
         return;
       }
 
-      if (requireVerifiedEmail && !firebaseUser.emailVerified) {
+      if (
+        requireVerifiedEmail &&
+        !(await hasVerifiedAccount(firebaseUser, true))
+      ) {
         router.replace("/verify-email");
         return;
       }
@@ -49,4 +53,3 @@ export default function AuthGuard({
 
   return <>{children}</>;
 }
-

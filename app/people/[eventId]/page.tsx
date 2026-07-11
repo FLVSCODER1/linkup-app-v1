@@ -16,6 +16,7 @@ import {
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 import type {
   EventPreferenceDocument,
   UserProfileDocument,
@@ -49,7 +50,7 @@ export default function PeoplePage() {
           return;
         }
 
-        if (!firebaseUser.emailVerified) {
+        if (!(await hasVerifiedAccount(firebaseUser, true))) {
           router.push("/verify-email");
           return;
         }

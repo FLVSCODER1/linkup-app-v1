@@ -4,13 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "./lib/firebase";
 import {
+  browserLocalPersistence,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   sendEmailVerification,
+  setPersistence,
+  signInWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { isAllowedSchoolEmail } from "./lib/auth/schools";
-import { getErrorMessage } from "./lib/errors";
+import { getFirebaseAuthErrorMessage } from "./lib/auth/firebase-errors";
+import { hasVerifiedAccount } from "./lib/auth/verification";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,15 +21,37 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function schoolEmailIsSupported(): Promise<boolean> {
+    const response = await fetch("/api/auth/school-context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setMessage(data.error || "That school email is not supported yet.");
+      return false;
+    }
+
+    return true;
+  }
 
   async function signUp() {
     try {
+      setBusy(true);
       setMessage("");
 
-      if (!isAllowedSchoolEmail(email)) {
-        setMessage("Use a valid school email.");
+      if (password.length < 8) {
+        setMessage("Use a password with at least 8 characters.");
         return;
       }
+
+      if (!(await schoolEmailIsSupported())) return;
+
+      await setPersistence(auth, browserLocalPersistence);
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -39,13 +64,20 @@ export default function LoginPage() {
       setMessage("Account created. Check your email to verify your account.");
       router.push("/verify-email");
     } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to create account."));
+      setMessage(
+        getFirebaseAuthErrorMessage(error, "We couldn't create the account.")
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
   async function logIn() {
     try {
+      setBusy(true);
       setMessage("");
+
+      await setPersistence(auth, browserLocalPersistence);
 
       const userCredential = await signInWithEmailAndPassword(
         auth,
@@ -57,9 +89,7 @@ export default function LoginPage() {
 
       await user.reload();
 
-      if (!user.emailVerified) {
-        await sendEmailVerification(user);
-        setMessage("Verification email sent. Check your inbox.");
+      if (!(await hasVerifiedAccount(user, true))) {
         router.push("/verify-email");
         return;
       }
@@ -80,7 +110,34 @@ export default function LoginPage() {
 
       router.push("/events");
     } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to log in."));
+      setMessage(
+        getFirebaseAuthErrorMessage(error, "We couldn't log you in.")
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword() {
+    try {
+      setBusy(true);
+      setMessage("");
+
+      if (!email.trim()) {
+        setMessage("Enter your school email first.");
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, email.trim());
+      setMessage(
+        "If an account exists for that email, Firebase has sent reset instructions."
+      );
+    } catch (error: unknown) {
+      setMessage(
+        getFirebaseAuthErrorMessage(error, "We couldn't send reset instructions.")
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -112,6 +169,7 @@ export default function LoginPage() {
         <div className="flex gap-3">
           <button
             onClick={logIn}
+            disabled={busy}
             className="flex-1 rounded-lg bg-white p-3 font-semibold text-black"
           >
             Log in
@@ -119,11 +177,21 @@ export default function LoginPage() {
 
           <button
             onClick={signUp}
+            disabled={busy}
             className="flex-1 rounded-lg border border-white/10 bg-white/10 p-3 font-semibold text-white"
           >
             Sign up
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={resetPassword}
+          disabled={busy}
+          className="mt-4 w-full text-sm text-white/60 underline-offset-4 hover:text-white hover:underline disabled:opacity-50"
+        >
+          Forgot password?
+        </button>
 
         {message && <p className="mt-4 text-sm text-white/70">{message}</p>}
       </div>

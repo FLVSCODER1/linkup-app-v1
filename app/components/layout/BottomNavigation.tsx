@@ -14,7 +14,7 @@ const items = [
 export default function BottomNavigation() {
   const pathname = usePathname();
 
-  if (PUBLIC_PATHS.has(pathname)) return null;
+  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith("/admin")) return null;
 
   return (
     <nav
@@ -50,4 +50,3 @@ export default function BottomNavigation() {
     </nav>
   );
 }
-

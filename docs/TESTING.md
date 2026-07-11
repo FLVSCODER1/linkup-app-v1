@@ -18,9 +18,11 @@ Security-sensitive changes also require Firestore Rules Emulator tests before re
 
 | Area | Feature | Automated/static coverage | Firebase/browser verification | Current status |
 | --- | --- | --- | --- | --- |
-| Authentication | School-domain signup | Unit covered | Required | Partially verified |
+| Authentication | Dynamic school-domain signup | Unit covered | Required | Partially verified |
 | Authentication | Login and persisted session | Pending | Required | Not verified |
 | Authentication | Email verification and resend | Pending | Required | Not verified |
+| Authentication | Manual admin verification | Rules covered | Required | Partially verified |
+| Authentication | Password reset | Typechecked | Required | Not verified |
 | Profiles | Initial setup | Typechecked | Required | Not verified |
 | Profiles | Profile editing | Typechecked | Required | Not verified |
 | Events | School/district feed visibility | Unit covered | Required | Partially verified |
