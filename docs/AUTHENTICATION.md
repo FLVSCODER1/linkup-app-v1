@@ -83,6 +83,11 @@ The Vercel project needs the server-only Firebase Admin environment variables
 listed in `.env.example`. Never expose these values with a `NEXT_PUBLIC_` prefix,
 paste them into chat, or commit them.
 
+Vercel Preview must also set the `NEXT_PUBLIC_FIREBASE_*` web configuration to a
+dedicated Firebase test project. The matching Admin variables must point to that
+same test project. Production and preview must never share test users or account
+verification records.
+
 ## Release gate
 
 Before enabling a new district:
