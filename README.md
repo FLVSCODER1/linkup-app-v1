@@ -60,5 +60,5 @@ That command runs unit tests, strict lint, TypeScript, and a production build. I
 ## Current constraints
 
 - End-to-end authentication, Firestore, calendar-sync, and RSVP flows still require a dedicated Firebase test project.
-- Firestore rules and indexes are not currently versioned in this repository; they must be recovered, audited, tested, and committed before launch.
+- Firestore feed indexes are versioned in `firestore.indexes.json` and must be deployed to each Firebase environment. Firestore rules still need to be recovered, audited, tested, and committed before launch.
 - `/api/dev/verify-user` is a preview/development-only test helper and must never be enabled in production.
