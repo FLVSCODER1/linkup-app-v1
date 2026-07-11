@@ -166,18 +166,6 @@ export default function EventsPage() {
 
       <button
         type="button"
-        onClick={() => router.push("/events/new")}
-        className="
-          fixed bottom-6 left-1/2 z-50 -translate-x-1/2
-          rounded-full bg-white px-6 py-3 text-sm font-semibold
-          text-black shadow-2xl transition hover:scale-105 active:scale-95
-        "
-      >
-        + Post Event
-      </button>
-
-      <button
-        type="button"
         onClick={() => router.push("/events/import-calendar")}
         className="
           fixed bottom-6 right-6 z-50 rounded-full border border-white/10
