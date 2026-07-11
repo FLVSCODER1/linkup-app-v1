@@ -1,12 +1,14 @@
 "use client";
 
-type EventCardProps = {
-  event: any;
+import type { FeedEvent } from "../../lib/events/types";
+
+interface EventCardProps {
+  event: FeedEvent;
   isJoined?: boolean;
   attendeeCount?: number;
   onClick: () => void;
   onJoinClick: () => void;
-};
+}
 
 export default function EventCard({
   event,
@@ -16,17 +18,9 @@ export default function EventCard({
   onJoinClick,
 }: EventCardProps) {
   return (
-    <div
+    <article
       onClick={onClick}
-      className="
-        cursor-pointer
-        rounded-2xl
-        border border-white/10
-        bg-white/5
-        p-5
-        transition
-        hover:bg-white/10
-      "
+      className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
     >
       <p className="mb-2 text-xs uppercase tracking-wide text-white/40">
         {event.category || "event"}
@@ -36,10 +30,7 @@ export default function EventCard({
         {event.title || "Untitled Event"}
       </h2>
 
-      <p className="mt-2 text-sm text-white/70">
-        {event.date || "Date TBD"}
-      </p>
-
+      <p className="mt-2 text-sm text-white/70">{event.date || "Date TBD"}</p>
       <p className="text-sm text-white/50">
         {event.location || "Location TBD"}
       </p>
@@ -54,22 +45,21 @@ export default function EventCard({
         <p className="text-xs text-white/50">{attendeeCount} attending</p>
 
         <button
-          onClick={(e) => {
-            e.stopPropagation();
+          type="button"
+          onClick={(clickEvent) => {
+            clickEvent.stopPropagation();
             onJoinClick();
           }}
-          className={`
-            rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95
-            ${
-              isJoined
-                ? "bg-white/10 text-white hover:bg-white/20"
-                : "bg-white text-black hover:scale-105"
-            }
-          `}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95 ${
+            isJoined
+              ? "bg-white/10 text-white hover:bg-white/20"
+              : "bg-white text-black hover:scale-105"
+          }`}
         >
           {isJoined ? "Joined" : "Join"}
         </button>
       </div>
-    </div>
+    </article>
   );
 }
+

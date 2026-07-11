@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LinkUp
 
-## Getting Started
+LinkUp helps high-school students discover, organize, and attend real-world activities with people from trusted school communities.
 
-First, run the development server:
+The app is a Next.js 16 application backed by Firebase Authentication and Firestore. It is currently in stabilization: product identity is locked, but the existing feature set must be verified against a dedicated Firebase test project before new features are considered complete.
+
+## Product guardrails
+
+- Audience: students ages 14–18.
+- Purpose: school events, study groups, clubs, sports, volunteering, and student-organized social activities.
+- Not a general social feed, dating app, or general messaging app.
+- Every feature must improve discovery, organization, connection around a real activity, or student safety.
+
+See [docs/PRODUCT.md](docs/PRODUCT.md) for the complete product identity and acceptance rule.
+
+## Local development
+
+Requirements:
+
+- Node.js 20 or newer
+- npm
+- Access to a non-production Firebase project for integration tests
+
+Install and run:
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local` and fill values from the test environment. Never commit credentials.
 
-## Learn More
+Firebase Admin variables are loaded lazily at request time. Public pages and production compilation therefore work without Admin credentials; Admin-backed API routes still require valid runtime configuration.
 
-To learn more about Next.js, take a look at the following resources:
+## Verification
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Run the full local gate:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run check
+```
 
-## Deploy on Vercel
+That command runs unit tests, strict lint, TypeScript, and a production build. It does not replace the Firebase/browser smoke tests in [docs/TESTING.md](docs/TESTING.md).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Key commands
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local development server |
+| `npm run test` | Run unit tests once |
+| `npm run lint` | Run ESLint with zero warnings allowed |
+| `npm run typecheck` | Run TypeScript without emitting files |
+| `npm run build` | Create a production build |
+| `npm run check` | Run every local quality gate |
+
+## Current constraints
+
+- End-to-end authentication, Firestore, calendar-sync, and RSVP flows still require a dedicated Firebase test project.
+- Firestore rules and indexes are not currently versioned in this repository; they must be recovered, audited, tested, and committed before launch.
+- `/api/dev/verify-user` is a preview/development-only test helper and must never be enabled in production.

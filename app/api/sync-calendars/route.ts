@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-import { adminDb } from "@/app/lib/firebase-admin";
+import { getAdminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -196,6 +196,7 @@ async function fetchIcsText(sourceUrl: string): Promise<string> {
 }
 
 async function eventAlreadyExists(sourceId: string): Promise<boolean> {
+  const adminDb = getAdminDb();
   const existingSnap = await adminDb
     .collection("events")
     .where("sourceId", "==", sourceId)
@@ -210,6 +211,7 @@ async function createImportedEvent(
   event: ParsedIcsEvent,
   sourceId: string
 ): Promise<void> {
+  const adminDb = getAdminDb();
   await adminDb.collection("events").add({
     title: event.title,
     description: event.description,
@@ -248,6 +250,7 @@ async function createImportedEvent(
 }
 
 async function syncSource(source: CalendarSource) {
+  const adminDb = getAdminDb();
   const icsText = await fetchIcsText(source.sourceUrl);
   const parsedEvents = parseIcsEvents(icsText);
 
@@ -295,6 +298,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const adminDb = getAdminDb();
     const sourcesSnap = await adminDb.collection("calendarSources").get();
 
     const sources = sourcesSnap.docs

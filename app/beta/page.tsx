@@ -1,22 +1,12 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import BackButton from "../components/ui/BackButton";
 
 export default function BetaPage() {
-  const router = useRouter();
-
   return (
     <main className="min-h-screen bg-neutral-950 text-white px-4 py-6 pb-28">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         {/* Header */}
         <section className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lg">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mb-4 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-neutral-300 transition hover:bg-white/10"
-          >
-            ← Back
-          </button>
+          <BackButton href="/events" label="Events" />
 
           <p className="mb-2 text-sm font-medium text-blue-300">
             LinkUp closed beta
@@ -28,7 +18,7 @@ export default function BetaPage() {
 
           <p className="mt-3 text-sm leading-6 text-neutral-300">
             This beta is for checking whether event discovery, joining events,
-            matching with classmates, and school-based filtering actually work
+            finding classmates attending, and school-based filtering actually work
             in real life instead of only surviving on localhost, where apps go
             to lie.
           </p>
@@ -56,7 +46,7 @@ export default function BetaPage() {
           </h2>
 
           <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-yellow-50/90">
-            <li>Some matching results may feel basic while the algorithm improves.</li>
+            <li>Friend suggestions are intentionally basic during the closed beta.</li>
             <li>Attendee previews may change as event activity updates.</li>
             <li>Calendar importing may not support every ICS format perfectly yet.</li>
             <li>Moderation tools are planned but not fully built out yet.</li>
@@ -83,28 +73,10 @@ export default function BetaPage() {
           <h2 className="text-xl font-semibold">Beta feedback</h2>
 
           <p className="mt-3 text-sm leading-6 text-neutral-300">
-            Use this section to collect feedback from testers. Replace the
-            placeholder link later with a Google Form, Airtable form, or in-app
-            feedback route when you are ready.
+            Feedback intake will open with the closed beta. Until it is
+            connected, LinkUp will not pretend a decorative button is a
+            reporting system.
           </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => alert("Feedback form coming soon.")}
-              className="rounded-2xl bg-blue-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-400"
-            >
-              Give feedback
-            </button>
-
-            <button
-              type="button"
-              onClick={() => alert("Issue reporting coming soon.")}
-              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-            >
-              Report an issue
-            </button>
-          </div>
         </section>
 
         {/* Beta checklist */}

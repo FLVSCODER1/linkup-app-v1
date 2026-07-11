@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import NavMenu from "../components/NavMenu";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import NavMenu from "../components/layout/NavMenu";
+import { getErrorMessage } from "../lib/errors";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -20,7 +21,12 @@ export default function ProfilePage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        router.push("/");
+        router.replace("/");
+        return;
+      }
+
+      if (!user.emailVerified) {
+        router.replace("/verify-email");
         return;
       }
 
@@ -65,11 +71,12 @@ export default function ProfilePage() {
         grade,
         bio: bio.trim(),
         profileComplete: true,
+        updatedAt: serverTimestamp(),
       });
 
       setMessage("Profile saved.");
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save profile."));
     }
   }
 
@@ -82,7 +89,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white">
+    <main className="min-h-screen bg-black p-6 pb-28 text-white">
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">

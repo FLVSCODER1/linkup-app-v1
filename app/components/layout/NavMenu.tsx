@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "../lib/firebase";
 import { signOut } from "firebase/auth";
+
+import { auth } from "../../lib/firebase";
 
 export default function NavMenu() {
   const router = useRouter();
@@ -11,47 +13,41 @@ export default function NavMenu() {
 
   async function handleSignOut() {
     await signOut(auth);
-    router.push("/");
-  }
-
-  function goTo(path: string) {
-    setOpen(false);
-    router.push(path);
+    router.replace("/");
   }
 
   return (
     <div className="fixed right-4 top-4 z-50">
       <button
-        onClick={() => setOpen(!open)}
-        className="rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/20"
+        type="button"
+        aria-expanded={open}
+        aria-label="Toggle navigation menu"
+        onClick={() => setOpen((current) => !current)}
+        className="rounded-lg border border-white/10 bg-black/80 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/10"
       >
         Menu
       </button>
 
       {open && (
         <div className="mt-2 w-44 rounded-xl border border-white/10 bg-black p-2 shadow-xl">
-          <button
-            onClick={() => goTo("/events")}
+          <Link
+            href="/events"
+            onClick={() => setOpen(false)}
             className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
           >
             Events
-          </button>
+          </Link>
 
-          <button
-            onClick={() => goTo("/people")}
+          <Link
+            href="/beta"
+            onClick={() => setOpen(false)}
             className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
           >
-            People
-          </button>
+            Beta guide
+          </Link>
 
           <button
-            onClick={() => goTo("/profile")}
-            className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
-          >
-            Profile
-          </button>
-
-          <button
+            type="button"
             onClick={handleSignOut}
             className="block w-full rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-white/10"
           >
@@ -62,3 +58,4 @@ export default function NavMenu() {
     </div>
   );
 }
+

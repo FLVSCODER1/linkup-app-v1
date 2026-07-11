@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ events });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Import failed. Calendar goblin escaped." },
       { status: 500 }

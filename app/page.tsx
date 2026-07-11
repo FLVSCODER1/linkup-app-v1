@@ -9,20 +9,8 @@ import {
   sendEmailVerification,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-
-const allowedDomains = [
-  "@students.ksd.org",
-  "@ksd.org",
-  "@pasco.k12.wa.us",
-  "@richland.k12.wa.us",
-  "@ufl.edu",
-  "@g.risd.org",
-];
-
-function isValidSchoolEmail(email: string) {
-  const clean = email.trim().toLowerCase();
-  return allowedDomains.some((domain) => clean.endsWith(domain));
-}
+import { isAllowedSchoolEmail } from "./lib/auth/schools";
+import { getErrorMessage } from "./lib/errors";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,7 +23,7 @@ export default function LoginPage() {
     try {
       setMessage("");
 
-      if (!isValidSchoolEmail(email)) {
+      if (!isAllowedSchoolEmail(email)) {
         setMessage("Use a valid school email.");
         return;
       }
@@ -50,8 +38,8 @@ export default function LoginPage() {
 
       setMessage("Account created. Check your email to verify your account.");
       router.push("/verify-email");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to create account.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to create account."));
     }
   }
 
@@ -91,8 +79,8 @@ export default function LoginPage() {
       }
 
       router.push("/events");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to log in.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to log in."));
     }
   }
 

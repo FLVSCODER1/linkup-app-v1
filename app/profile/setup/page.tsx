@@ -4,36 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-
-function getSchoolFromEmail(email: string) {
-  const lower = email.trim().toLowerCase();
-
-  if (
-    lower.endsWith("@students.ksd.org") ||
-    lower.endsWith("@ksd.org")
-  ) {
-    return "Kennewick School District";
-  }
-
-  if (lower.endsWith("@pasco.k12.wa.us")) {
-    return "Pasco School District";
-  }
-
-  if (lower.endsWith("@richland.k12.wa.us")) {
-    return "Richland School District";
-  }
-
-  if (lower.endsWith("@ufl.edu")) {
-    return "University of Florida Test";
-  }
-
-  if (lower.endsWith("@g.risd.org")) {
-    return "University of Florida Test";
-  }
-
-  return "Unknown School";
-}
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { getSchoolContext } from "../../lib/auth/schools";
+import { getErrorMessage } from "../../lib/errors";
 
 const interestOptions = [
   "Sports",
@@ -76,6 +49,24 @@ export default function ProfileSetupPage() {
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists() && userSnap.data().profileComplete) {
+        const existingProfile = userSnap.data();
+
+        if (!existingProfile.district && firebaseUser.email) {
+          const schoolContext = getSchoolContext(firebaseUser.email);
+
+          if (schoolContext) {
+            await setDoc(
+              userRef,
+              {
+                district: schoolContext.district,
+                school: schoolContext.school,
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+        }
+
         router.push("/events");
         return;
       }
@@ -121,24 +112,34 @@ export default function ProfileSetupPage() {
     setMessage("");
 
     try {
-      const school = getSchoolFromEmail(user.email);
+      const schoolContext = getSchoolContext(user.email);
 
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email: user.email,
-        school,
-        displayName: displayName.trim(),
-        bio: bio.trim(),
-        grade,
-        interests,
-        profileComplete: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      if (!schoolContext) {
+        setMessage("This school email is not supported yet.");
+        return;
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          email: user.email,
+          district: schoolContext.district,
+          school: schoolContext.school,
+          displayName: displayName.trim(),
+          bio: bio.trim(),
+          grade,
+          interests,
+          profileComplete: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
       router.push("/events");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to save profile.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save profile."));
     } finally {
       setSaving(false);
     }
@@ -158,7 +159,7 @@ export default function ProfileSetupPage() {
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold">Set up your profile</h1>
           <p className="text-sm text-white/70">
-            Finish your profile so LinkUp can match you with events and people
+            Finish your profile so LinkUp can recommend events and people
             at your school.
           </p>
         </div>
@@ -191,7 +192,6 @@ export default function ProfileSetupPage() {
               <option value="10">10th grade</option>
               <option value="11">11th grade</option>
               <option value="12">12th grade</option>
-              <option value="college">College</option>
             </select>
           </div>
 

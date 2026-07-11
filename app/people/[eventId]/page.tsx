@@ -13,23 +13,29 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import NavMenu from "../../components/NavMenu";
+import NavMenu from "../../components/layout/NavMenu";
+import BackButton from "../../components/ui/BackButton";
+import { getErrorMessage } from "../../lib/errors";
+import type {
+  EventPreferenceDocument,
+  UserProfileDocument,
+} from "../../lib/firestore/types";
 
 type AppUser = {
   id: string;
   bio?: string;
   displayName?: string;
   grade?: string;
-  school?: string;
+  school?: string | null;
   profileComplete?: boolean;
-  eventPromStatus?: string;
-  eventLookingFor?: string;
+  attendanceStatus?: string;
+  connectionGoal?: string;
 };
 
 export default function PeoplePage() {
   const router = useRouter();
-  const params = useParams();
-  const eventId = params.eventId as string;
+  const params = useParams<{ eventId: string }>();
+  const eventId = params.eventId;
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [message, setMessage] = useState("");
@@ -57,63 +63,80 @@ export default function PeoplePage() {
           return;
         }
 
-        const currentUser = currentUserSnap.data();
+        const currentUser = currentUserSnap.data() as UserProfileDocument;
 
         const currentPrefSnap = await getDoc(
           doc(db, "eventPreferences", `${firebaseUser.uid}_${eventId}`)
         );
 
         if (!currentPrefSnap.exists()) {
-          router.push(`/event/${eventId}`);
+          router.push(`/events/${eventId}/preferences`);
           return;
         }
 
-        const currentPref = currentPrefSnap.data();
+        const currentPref =
+          currentPrefSnap.data() as Partial<EventPreferenceDocument>;
+        const currentAttendance =
+          currentPref.attendanceStatus ?? currentPref.promStatus;
+        const currentGoal = currentPref.connectionGoal ?? currentPref.lookingFor;
 
         if (
-          currentPref.promStatus === "not-going" ||
-          currentPref.lookingFor === "browsing"
+          currentAttendance === "not-going" ||
+          currentGoal === "browsing"
         ) {
           setUsers([]);
-          setMessage("You are not currently matching for this event.");
+          setMessage("You are not currently looking for people at this event.");
           setLoading(false);
           return;
         }
 
-        const prefsSnap = await getDocs(collection(db, "eventPreferences"));
-
-        const usersQuery = query(
-          collection(db, "users"),
-          where("school", "==", currentUser.school)
+        const prefsSnap = await getDocs(
+          query(
+            collection(db, "eventPreferences"),
+            where("eventId", "==", eventId)
+          )
         );
+
+        const usersQuery = currentUser.school
+          ? query(
+              collection(db, "users"),
+              where("school", "==", currentUser.school)
+            )
+          : query(
+              collection(db, "users"),
+              where("district", "==", currentUser.district)
+            );
 
         const usersSnap = await getDocs(usersQuery);
 
         const eligiblePrefs = new Map<
           string,
-          { promStatus: string; lookingFor: string }
+          { attendanceStatus: string; connectionGoal: string }
         >();
 
         prefsSnap.forEach((prefDoc) => {
-          const pref = prefDoc.data();
+          const pref = prefDoc.data() as Partial<EventPreferenceDocument>;
+          const attendanceStatus = pref.attendanceStatus ?? pref.promStatus;
+          const connectionGoal = pref.connectionGoal ?? pref.lookingFor;
 
           if (
-            pref.eventId === eventId &&
             pref.userId !== firebaseUser.uid &&
-            (pref.promStatus === "going" || pref.promStatus === "maybe") &&
-            pref.lookingFor !== "browsing"
+            (attendanceStatus === "going" || attendanceStatus === "maybe") &&
+            connectionGoal !== "browsing"
           ) {
-            eligiblePrefs.set(pref.userId, {
-              promStatus: pref.promStatus,
-              lookingFor: pref.lookingFor,
-            });
+            if (pref.userId) {
+              eligiblePrefs.set(pref.userId, {
+                attendanceStatus,
+                connectionGoal: connectionGoal ?? "friends",
+              });
+            }
           }
         });
 
         const filteredUsers: AppUser[] = [];
 
         usersSnap.forEach((userDoc) => {
-          const userData = userDoc.data();
+          const userData = userDoc.data() as Partial<UserProfileDocument>;
           const pref = eligiblePrefs.get(userDoc.id);
 
           if (pref && userData.profileComplete) {
@@ -123,15 +146,15 @@ export default function PeoplePage() {
               grade: userData.grade,
               school: userData.school,
               profileComplete: userData.profileComplete,
-              eventPromStatus: pref.promStatus,
-              eventLookingFor: pref.lookingFor,
+              attendanceStatus: pref.attendanceStatus,
+              connectionGoal: pref.connectionGoal,
             });
           }
         });
 
         setUsers(filteredUsers);
-      } catch (error: any) {
-        setMessage(error.message || "Failed to load people.");
+      } catch (error: unknown) {
+        setMessage(getErrorMessage(error, "Failed to load people."));
       } finally {
         setLoading(false);
       }
@@ -159,8 +182,8 @@ export default function PeoplePage() {
       });
 
       setMessage("Interest saved privately.");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to save interest.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save interest."));
     }
   }
 
@@ -177,23 +200,11 @@ export default function PeoplePage() {
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
-        <button
-          onClick={() => router.back()}
-          className="mb-6 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
-        >
-          ← Back
-        </button>
+        <BackButton href={`/events/${eventId}`} label="Event details" />
 
         <h1 className="mb-2 text-3xl font-bold">
           People for {eventId.replaceAll("-", " ")}
         </h1>
-
-        <button
-          onClick={() => router.push(`/matches/${eventId}`)}
-          className="mb-6 rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
-        >
-          View matches
-        </button>
 
         {message && (
           <p className="mb-4 rounded-lg bg-white/10 p-3 text-sm text-white/80">
@@ -221,8 +232,7 @@ export default function PeoplePage() {
                 </p>
 
                 <p className="text-sm text-white/50">
-                  Status: {user.eventPromStatus} • Looking for:{" "}
-                  {user.eventLookingFor}
+                  RSVP: {user.attendanceStatus} • Connect: {user.connectionGoal}
                 </p>
 
                 <button

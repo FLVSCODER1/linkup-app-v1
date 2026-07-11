@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, type User } from "firebase/auth";
 
 import { auth } from "../lib/firebase";
-import NavMenu from "../components/NavMenu";
-import EventCard from "../components/EventCard";
+import NavMenu from "../components/layout/NavMenu";
+import EventCard from "../components/events/EventCard";
 
 import { getUserProfile, getVisibleFeedEvents } from "../lib/events/queries";
 import type { FeedEvent, UserProfile } from "../lib/events/types";
@@ -44,7 +44,7 @@ export default function EventsPage() {
 
         const loadedProfile = await getUserProfile(currentUser.uid);
 
-        if (!loadedProfile?.school && !loadedProfile?.district) {
+        if (!loadedProfile?.district) {
           router.push("/profile/setup");
           return;
         }
@@ -154,7 +154,9 @@ export default function EventsPage() {
                   isJoined={false}
                   attendeeCount={event.attendeeCount ?? 0}
                   onClick={() => router.push(`/events/${event.id}`)}
-                  onJoinClick={() => router.push(`/event/${event.id}`)}
+                  onJoinClick={() =>
+                    router.push(`/events/${event.id}/preferences`)
+                  }
                 />
               </div>
             ))}
