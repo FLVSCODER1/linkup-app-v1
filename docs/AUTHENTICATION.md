@@ -88,6 +88,26 @@ dedicated Firebase test project. The matching Admin variables must point to that
 same test project. Production and preview must never share test users or account
 verification records.
 
+### Preview-only test inboxes
+
+When a tester cannot access an address on a staged school domain, Preview may map
+an exact inbox that the tester controls to an existing test district and school.
+Set the server-only `LINKUP_PREVIEW_TEST_ACCOUNTS` variable to a JSON object:
+
+```json
+{
+  "tester@example.edu": {
+    "districtId": "wylie-isd",
+    "schoolId": "wylie-high-school"
+  }
+}
+```
+
+The mapping is active only when Vercel sets `VERCEL_ENV=preview`. It never enables
+an entire email domain, is ignored in Production, and still requires the mapped
+district and school to be active in the test Firestore directory. Remove the
+mapping and test account after the live verification checks are complete.
+
 ## Release gate
 
 Before enabling a new district:

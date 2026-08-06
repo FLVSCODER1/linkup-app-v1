@@ -11,6 +11,7 @@ import {
   type SchoolDomainDirectoryData,
   type SchoolDirectoryData,
 } from "./school-directory";
+import { resolvePreviewTestAccount } from "./preview-test-account";
 
 export async function getSchoolDirectoryContext(
   email: string
@@ -20,13 +21,25 @@ export async function getSchoolDirectoryContext(
   if (!domain) return null;
 
   const db = getAdminDb();
-  const domainSnapshot = await db.collection("schoolDomains").doc(domain).get();
-  if (!domainSnapshot.exists) return null;
-
-  const domainMapping = normalizeSchoolDomainData(
-    domainSnapshot.data() as Partial<SchoolDomainDirectoryData>
+  const previewMapping = resolvePreviewTestAccount(
+    email,
+    process.env.VERCEL_ENV,
+    process.env.LINKUP_PREVIEW_TEST_ACCOUNTS
   );
-  if (!domainMapping) return null;
+  let domainMapping: SchoolDomainDirectoryData;
+
+  if (previewMapping) {
+    domainMapping = { active: true, ...previewMapping };
+  } else {
+    const domainSnapshot = await db.collection("schoolDomains").doc(domain).get();
+    if (!domainSnapshot.exists) return null;
+
+    const normalizedDomainMapping = normalizeSchoolDomainData(
+      domainSnapshot.data() as Partial<SchoolDomainDirectoryData>
+    );
+    if (!normalizedDomainMapping) return null;
+    domainMapping = normalizedDomainMapping;
+  }
 
   const districtSnapshot = await db
     .collection("districts")
