@@ -6,6 +6,7 @@ import {
   hasCompleteProfileIdentity,
   validateProfileSetupInput,
 } from "@/app/lib/auth/profile-validation";
+import { resolveAssignedAdminSchoolContext } from "@/app/lib/auth/admin-profile-school";
 import { validateSchoolSelection } from "@/app/lib/auth/school-directory";
 import { getSchoolDirectoryContext } from "@/app/lib/auth/school-directory.server";
 import {
@@ -56,6 +57,8 @@ export async function GET(request: NextRequest) {
           bio: typeof data?.bio === "string" ? data.bio : "",
           grade: typeof data?.grade === "string" ? data.grade : "",
           interests: Array.isArray(data?.interests) ? data.interests : [],
+          districtId:
+            typeof data?.districtId === "string" ? data.districtId : "",
           schoolId: typeof data?.schoolId === "string" ? data.schoolId : "",
           district: typeof data?.district === "string" ? data.district : null,
           school: typeof data?.school === "string" ? data.school : null,
@@ -91,7 +94,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const context = await getSchoolDirectoryContext(token.email);
+    const db = getAdminDb();
+    const [directoryContext, adminSnapshot, existingUserSnapshot] =
+      await Promise.all([
+        getSchoolDirectoryContext(token.email),
+        db.collection("admins").doc(token.uid).get(),
+        db.collection("users").doc(token.uid).get(),
+      ]);
+    const context =
+      directoryContext ??
+      resolveAssignedAdminSchoolContext(
+        adminSnapshot.data(),
+        existingUserSnapshot.data(),
+        token.email
+      );
     const school = context
       ? validateSchoolSelection(context, validation.value.schoolId)
       : null;
@@ -104,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (token.email_verified !== true) {
-      const verification = await getAdminDb()
+      const verification = await db
         .collection("accountVerifications")
         .doc(token.uid)
         .get();
@@ -122,7 +138,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const db = getAdminDb();
     const userRef = db.collection("users").doc(token.uid);
     const privateUserRef = db
       .collection("privateUserProfiles")

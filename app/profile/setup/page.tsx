@@ -79,6 +79,24 @@ export default function ProfileSetupPage() {
         };
 
         if (!response.ok || !directoryData.context) {
+          if (
+            profile?.districtId &&
+            profile.district &&
+            profile.schoolId &&
+            profile.school
+          ) {
+            setSchoolContext({
+              domain: firebaseUser.email.split("@").pop()?.toLowerCase() || "",
+              districtId: profile.districtId,
+              districtName: profile.district,
+              schools: [{ id: profile.schoolId, name: profile.school }],
+              fixedSchoolId: profile.schoolId,
+            });
+            setSchoolId(profile.schoolId);
+            setUser(firebaseUser);
+            return;
+          }
+
           setMessage(directoryData.error || "Your school is not supported yet.");
           return;
         }
