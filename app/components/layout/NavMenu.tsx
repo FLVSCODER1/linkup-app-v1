@@ -10,6 +10,7 @@ import { auth } from "../../lib/firebase";
 export default function NavMenu() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [canReviewAccounts, setCanReviewAccounts] = useState(false);
   const [canReviewCalendars, setCanReviewCalendars] = useState(false);
 
@@ -17,6 +18,7 @@ export default function NavMenu() {
     return onAuthStateChanged(auth, async (user) => {
       setCanReviewAccounts(false);
       setCanReviewCalendars(false);
+      setIsAdmin(false);
       if (!user) return;
 
       try {
@@ -28,9 +30,11 @@ export default function NavMenu() {
 
         if (!response.ok) return;
         const access = (await response.json()) as {
+          isAdmin?: boolean;
           canReviewAccounts?: boolean;
           canReviewCalendars?: boolean;
         };
+        setIsAdmin(access.isAdmin === true);
         setCanReviewAccounts(access.canReviewAccounts === true);
         setCanReviewCalendars(access.canReviewCalendars === true);
       } catch {
@@ -64,6 +68,14 @@ export default function NavMenu() {
                 Admin
               </p>
 
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-orange-200 hover:bg-orange-400/10"
+              >
+                Tool directory
+              </Link>
+
               {canReviewAccounts && (
                 <Link
                   href="/admin/account-verifications"
@@ -81,6 +93,16 @@ export default function NavMenu() {
                   className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-orange-200 hover:bg-orange-400/10"
                 >
                   ICS requests
+                </Link>
+              )}
+
+              {isAdmin && (
+                <Link
+                  href="/admin/schools"
+                  onClick={() => setOpen(false)}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-orange-200 hover:bg-orange-400/10"
+                >
+                  School directory
                 </Link>
               )}
             </div>

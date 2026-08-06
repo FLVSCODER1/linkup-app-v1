@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
-import { reload, sendEmailVerification } from "firebase/auth";
+import { onAuthStateChanged, reload, sendEmailVerification } from "firebase/auth";
 import type { SchoolDirectoryContext } from "../lib/auth/school-directory";
 import { getFirebaseAuthErrorMessage } from "../lib/auth/firebase-errors";
 import { hasVerifiedAccount } from "../lib/auth/verification";
@@ -15,6 +15,67 @@ export default function VerifyEmailPage() {
   const [context, setContext] = useState<SchoolDirectoryContext | null>(null);
   const [schoolId, setSchoolId] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const verificationCheckInProgress = useRef(false);
+
+  const checkVerification = useCallback(
+    async (showFeedback: boolean) => {
+      const user = auth.currentUser;
+      if (!user) {
+        if (showFeedback) router.push("/");
+        return;
+      }
+
+      if (verificationCheckInProgress.current) return;
+      verificationCheckInProgress.current = true;
+      if (showFeedback) setChecking(true);
+
+      try {
+        await reload(user);
+
+        if (await hasVerifiedAccount(user, true)) {
+          router.replace("/profile/setup");
+          return;
+        }
+
+        if (showFeedback) {
+          setMessage("Still not verified. Check your inbox or spam folder.");
+        }
+      } catch (error) {
+        if (showFeedback) {
+          setMessage(
+            getFirebaseAuthErrorMessage(
+              error,
+              "We couldn't check verification right now."
+            )
+          );
+        }
+      } finally {
+        verificationCheckInProgress.current = false;
+        if (showFeedback) setChecking(false);
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    const runAutomaticCheck = () => {
+      if (document.visibilityState === "visible") {
+        void checkVerification(false);
+      }
+    };
+    const unsubscribe = onAuthStateChanged(auth, () => runAutomaticCheck());
+    const interval = window.setInterval(runAutomaticCheck, 5_000);
+
+    window.addEventListener("focus", runAutomaticCheck);
+    document.addEventListener("visibilitychange", runAutomaticCheck);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", runAutomaticCheck);
+      document.removeEventListener("visibilitychange", runAutomaticCheck);
+    };
+  }, [checkVerification]);
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -40,24 +101,6 @@ export default function VerifyEmailPage() {
       })
       .catch(() => undefined);
   }, []);
-
-  async function checkVerification() {
-    if (!auth.currentUser) {
-      router.push("/");
-      return;
-    }
-
-    setChecking(true);
-    await reload(auth.currentUser);
-
-    if (await hasVerifiedAccount(auth.currentUser, true)) {
-      router.push("/profile/setup");
-    } else {
-      setMessage("Still not verified. Check your inbox or spam folder.");
-    }
-
-    setChecking(false);
-  }
 
   async function resendEmail() {
     if (!auth.currentUser) {
@@ -121,7 +164,7 @@ export default function VerifyEmailPage() {
 
         <div className="mt-6 flex flex-col gap-3">
           <button
-            onClick={checkVerification}
+            onClick={() => void checkVerification(true)}
             disabled={checking}
             className="rounded-xl bg-white px-4 py-3 font-semibold text-black"
           >
