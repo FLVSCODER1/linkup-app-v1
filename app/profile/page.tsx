@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getErrorMessage } from "../lib/errors";
 import NavMenu from "../components/NavMenu";
 
 export default function ProfilePage() {
@@ -68,8 +69,8 @@ export default function ProfilePage() {
       });
 
       setMessage("Profile saved.");
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save profile."));
     }
   }
 

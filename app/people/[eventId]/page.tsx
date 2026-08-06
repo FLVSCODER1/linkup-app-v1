@@ -14,6 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
+import { getErrorMessage } from "../../lib/errors";
 
 type AppUser = {
   id: string;
@@ -130,8 +131,8 @@ export default function PeoplePage() {
         });
 
         setUsers(filteredUsers);
-      } catch (error: any) {
-        setMessage(error.message || "Failed to load people.");
+      } catch (error: unknown) {
+        setMessage(getErrorMessage(error, "Failed to load people."));
       } finally {
         setLoading(false);
       }
@@ -159,8 +160,8 @@ export default function PeoplePage() {
       });
 
       setMessage("Interest saved privately.");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to save interest.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save interest."));
     }
   }
 

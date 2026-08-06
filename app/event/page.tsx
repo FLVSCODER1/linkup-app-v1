@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getErrorMessage } from "../lib/errors";
 
 export default function EventPage() {
   const router = useRouter();
@@ -63,8 +64,8 @@ export default function EventPage() {
 
       setMessage("Event preferences saved.");
       router.push("/people");
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save preferences."));
     }
   }
 

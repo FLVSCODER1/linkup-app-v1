@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { getErrorMessage } from "../../lib/errors";
 
 function getSchoolFromEmail(email: string) {
   const lower = email.trim().toLowerCase();
@@ -137,8 +138,8 @@ export default function ProfileSetupPage() {
       });
 
       router.push("/events");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to save profile.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save profile."));
     } finally {
       setSaving(false);
     }

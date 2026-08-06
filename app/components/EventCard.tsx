@@ -1,7 +1,9 @@
 "use client";
 
+import type { FeedEvent } from "../lib/events/types";
+
 type EventCardProps = {
-  event: any;
+  event: FeedEvent;
   isJoined?: boolean;
   attendeeCount?: number;
   onClick: () => void;

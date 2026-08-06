@@ -12,16 +12,18 @@ import {
   setDoc,
 } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
+import { getErrorMessage } from "../../lib/errors";
+import type { FeedEvent, UserProfile } from "../../lib/events/types";
 
 export default function EventPreferencesPage() {
   const router = useRouter();
   const params = useParams();
   const eventId = params.id as string;
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<FeedEvent | null>(null);
   const [promStatus, setPromStatus] = useState("going");
   const [lookingFor, setLookingFor] = useState("either");
-  const [currentUserData, setCurrentUserData] = useState<any>(null);
+  const [currentUserData, setCurrentUserData] = useState<UserProfile | null>(null);
   const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -80,8 +82,8 @@ export default function EventPreferencesPage() {
           setPromStatus(pref.promStatus || "going");
           setLookingFor(pref.lookingFor || "either");
         }
-      } catch (error: any) {
-        setMessage(error.message || "Failed to load event preferences.");
+      } catch (error: unknown) {
+        setMessage(getErrorMessage(error, "Failed to load event preferences."));
       } finally {
         setLoading(false);
       }
@@ -135,8 +137,8 @@ export default function EventPreferencesPage() {
       }
 
       router.push(`/people/${eventId}`);
-    } catch (error: any) {
-      setMessage(error.message || "Failed to save preferences.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to save preferences."));
     } finally {
       setSaving(false);
     }
