@@ -72,6 +72,10 @@ async function seedData() {
         district: "Other District",
         school: "Other High",
       }),
+      setDoc(doc(db, "privateUserProfiles", "alpha-student"), {
+        uid: "alpha-student",
+        lastName: "Student",
+      }),
       setDoc(doc(db, "events", "alpha-school-event"), {
         createdBy: "system",
         status: "published",
@@ -140,6 +144,18 @@ describe("LinkUp Firestore trust boundaries", () => {
       linkup_verified: true,
     });
     await assertSucceeds(getDoc(doc(db, "users", "alpha-student")));
+  });
+
+  it("keeps legal surnames unavailable to Firestore clients", async () => {
+    const ownerDb = firestoreFor("alpha-student");
+    const peerDb = firestoreFor("beta-student");
+
+    await assertFails(
+      getDoc(doc(ownerDb, "privateUserProfiles", "alpha-student"))
+    );
+    await assertFails(
+      getDoc(doc(peerDb, "privateUserProfiles", "alpha-student"))
+    );
   });
 
   it("allows school and district events but denies other schools and districts", async () => {

@@ -1,7 +1,10 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 
-import { validateProfileSetupInput } from "@/app/lib/auth/profile-validation";
+import {
+  buildStoredProfileIdentity,
+  validateProfileSetupInput,
+} from "@/app/lib/auth/profile-validation";
 import { validateSchoolSelection } from "@/app/lib/auth/school-directory";
 import { getSchoolDirectoryContext } from "@/app/lib/auth/school-directory.server";
 import {
@@ -20,7 +23,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const snapshot = await getAdminDb().collection("users").doc(token.uid).get();
+    const db = getAdminDb();
+    const [snapshot, privateSnapshot] = await Promise.all([
+      db.collection("users").doc(token.uid).get(),
+      db.collection("privateUserProfiles").doc(token.uid).get(),
+    ]);
     if (!snapshot.exists) {
       return NextResponse.json(
         { profile: null },
@@ -29,9 +36,20 @@ export async function GET(request: NextRequest) {
     }
 
     const data = snapshot.data();
+    const privateData = privateSnapshot.data();
     return NextResponse.json(
       {
         profile: {
+          firstName:
+            typeof data?.firstName === "string"
+              ? data.firstName
+              : typeof data?.displayName === "string"
+                ? data.displayName
+                : "",
+          lastName:
+            typeof privateData?.lastName === "string"
+              ? privateData.lastName
+              : "",
           displayName:
             typeof data?.displayName === "string" ? data.displayName : "",
           bio: typeof data?.bio === "string" ? data.bio : "",
@@ -103,27 +121,44 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminDb();
     const userRef = db.collection("users").doc(token.uid);
+    const privateUserRef = db
+      .collection("privateUserProfiles")
+      .doc(token.uid);
 
     await db.runTransaction(async (transaction) => {
       const existing = await transaction.get(userRef);
       const value = validation.value;
+      const identity = buildStoredProfileIdentity(value);
 
       transaction.set(
         userRef,
         {
           uid: token.uid,
           email: token.email?.toLowerCase(),
+          ...identity.publicIdentity,
           districtId: context.districtId,
           district: context.districtName,
           schoolId: school.id,
           school: school.name,
-          displayName: value.displayName,
           bio: value.bio,
           grade: value.grade,
           interests: value.interests,
           profileComplete: true,
           verificationMethod:
             token.email_verified === true ? "email" : "manual",
+          updatedAt: FieldValue.serverTimestamp(),
+          ...(existing.exists
+            ? {}
+            : { createdAt: FieldValue.serverTimestamp() }),
+        },
+        { merge: true }
+      );
+
+      transaction.set(
+        privateUserRef,
+        {
+          uid: token.uid,
+          ...identity.privateIdentity,
           updatedAt: FieldValue.serverTimestamp(),
           ...(existing.exists
             ? {}

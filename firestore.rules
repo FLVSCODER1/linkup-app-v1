@@ -85,6 +85,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Legal surnames are stored separately from public school profiles and are
+    // available only through authenticated server endpoints.
+    match /privateUserProfiles/{document=**} {
+      allow read, write: if false;
+    }
+
     match /events/{eventId} {
       allow read: if isVerified() && publishedEventIsVisible(resource.data);
 

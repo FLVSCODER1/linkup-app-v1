@@ -7,6 +7,8 @@ export type GradeLevel = "9" | "10" | "11" | "12";
 export interface UserProfileDocument {
   uid: string;
   email: string;
+  firstName: string;
+  lastInitial: string;
   displayName: string;
   bio: string;
   grade: GradeLevel;
@@ -16,6 +18,13 @@ export interface UserProfileDocument {
   school: string | null;
   schoolId?: string | null;
   profileComplete: boolean;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
+}
+
+export interface PrivateUserProfileDocument {
+  uid: string;
+  lastName: string;
   createdAt: FirestoreDate;
   updatedAt: FirestoreDate;
 }

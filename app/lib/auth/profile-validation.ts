@@ -14,12 +14,29 @@ export const PROFILE_INTERESTS = [
 ] as const;
 
 export interface ProfileSetupInput {
+  firstName: string;
+  lastName: string;
   displayName: string;
   bio: string;
   grade: GradeLevel;
   interests: string[];
   schoolId: string;
 }
+
+export function buildStoredProfileIdentity(profile: ProfileSetupInput) {
+  return {
+    publicIdentity: {
+      firstName: profile.firstName,
+      lastInitial: Array.from(profile.lastName)[0]?.toUpperCase() ?? "",
+      displayName: profile.displayName,
+    },
+    privateIdentity: {
+      lastName: profile.lastName,
+    },
+  };
+}
+
+const PERSON_NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}'’.-]*$/u;
 
 type ProfileValidationResult =
   | { valid: true; value: ProfileSetupInput }
@@ -33,8 +50,13 @@ export function validateProfileSetupInput(
   }
 
   const data = input as Record<string, unknown>;
-  const displayName =
+  const firstName =
+    typeof data.firstName === "string" ? data.firstName.trim() : "";
+  const lastName =
+    typeof data.lastName === "string" ? data.lastName.trim() : "";
+  const requestedDisplayName =
     typeof data.displayName === "string" ? data.displayName.trim() : "";
+  const displayName = requestedDisplayName || firstName;
   const bio = typeof data.bio === "string" ? data.bio.trim() : "";
   const grade = typeof data.grade === "string" ? data.grade : "";
   const schoolId =
@@ -43,8 +65,19 @@ export function validateProfileSetupInput(
     ? [...new Set(data.interests.filter((item): item is string => typeof item === "string"))]
     : [];
 
-  if (displayName.length < 2 || displayName.length > 50) {
-    return { valid: false, error: "Display name must be 2–50 characters." };
+  if (
+    firstName.length > 50 ||
+    !PERSON_NAME_PATTERN.test(firstName)
+  ) {
+    return { valid: false, error: "Enter a valid first name." };
+  }
+
+  if (lastName.length > 50 || !PERSON_NAME_PATTERN.test(lastName)) {
+    return { valid: false, error: "Enter a valid last name." };
+  }
+
+  if (displayName.length < 1 || displayName.length > 50) {
+    return { valid: false, error: "Display name must be 1–50 characters." };
   }
 
   if (bio.length > 250) {
@@ -71,6 +104,8 @@ export function validateProfileSetupInput(
   return {
     valid: true,
     value: {
+      firstName,
+      lastName,
       displayName,
       bio,
       grade: grade as GradeLevel,

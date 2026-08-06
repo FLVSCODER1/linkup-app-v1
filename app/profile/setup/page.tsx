@@ -9,12 +9,15 @@ import {
   validateProfileSetupInput,
 } from "../../lib/auth/profile-validation";
 import type { SchoolDirectoryContext } from "../../lib/auth/school-directory";
+import { fetchCurrentUserProfile } from "../../lib/auth/profile-client";
 import { hasVerifiedAccount } from "../../lib/auth/verification";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [grade, setGrade] = useState("");
@@ -39,44 +42,25 @@ export default function ProfileSetupPage() {
           return;
         }
 
-        const token = await firebaseUser.getIdToken(true);
-        const profileResponse = await fetch("/api/auth/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        });
-        const profileData = (await profileResponse.json()) as {
-          profile?: {
-            displayName: string;
-            bio: string;
-            grade: string;
-            interests: string[];
-            schoolId: string;
-            district: string | null;
-            school: string | null;
-            profileComplete: boolean;
-          } | null;
-          error?: string;
-        };
-
-        if (!profileResponse.ok) {
-          throw new Error(profileData.error || "Profile lookup failed.");
-        }
+        const profile = await fetchCurrentUserProfile(firebaseUser);
 
         if (
-          profileData.profile?.profileComplete &&
-          profileData.profile.district &&
-          profileData.profile.school
+          profile?.profileComplete &&
+          profile.district &&
+          profile.school
         ) {
           router.push("/events");
           return;
         }
 
-        if (profileData.profile) {
-          setDisplayName(profileData.profile.displayName);
-          setBio(profileData.profile.bio);
-          setGrade(profileData.profile.grade);
-          setInterests(profileData.profile.interests);
-          setSchoolId(profileData.profile.schoolId);
+        if (profile) {
+          setFirstName(profile.firstName);
+          setLastName(profile.lastName);
+          setDisplayName(profile.displayName);
+          setBio(profile.bio);
+          setGrade(profile.grade);
+          setInterests(profile.interests);
+          setSchoolId(profile.schoolId);
         }
 
         if (!firebaseUser.email) {
@@ -129,8 +113,8 @@ export default function ProfileSetupPage() {
   async function handleSaveProfile() {
     if (!user || !user.email) return;
 
-    if (!displayName.trim()) {
-      setMessage("Please enter a display name.");
+    if (!firstName.trim() || !lastName.trim()) {
+      setMessage("Please enter your first and last name.");
       return;
     }
 
@@ -144,6 +128,8 @@ export default function ProfileSetupPage() {
 
     try {
       const validation = validateProfileSetupInput({
+        firstName,
+        lastName,
         displayName,
         bio,
         grade,
@@ -226,12 +212,41 @@ export default function ProfileSetupPage() {
 
           <div>
             <label className="mb-2 block text-sm font-medium text-white/80">
-              Display name
+              First name
+            </label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
+              placeholder="First name"
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              Last name
+            </label>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
+              placeholder="Last name"
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+            />
+            <p className="mt-2 text-xs text-white/50">
+              Used for account verification and kept private by default.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              Display name <span className="text-white/40">(optional)</span>
             </label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="What should people call you?"
+              placeholder={firstName || "What should people call you?"}
               className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
             />
           </div>
