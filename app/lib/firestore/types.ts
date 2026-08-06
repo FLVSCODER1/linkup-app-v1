@@ -141,7 +141,9 @@ export interface InterestDocument {
 
 export interface CalendarSourceDocument {
   active: boolean;
+  districtId?: string;
   district: string;
+  schoolId?: string;
   school: string | null;
   sourceType: "ics";
   sourceUrl: string;
@@ -152,4 +154,28 @@ export interface CalendarSourceDocument {
   lastSyncCreatedCount?: number;
   lastSyncSkippedCount?: number;
   lastSyncError?: string | null;
+  approvedAt?: FirestoreDate;
+  approvedBy?: string;
+  requestId?: string;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export type CalendarImportRequestStatus = "pending" | "approved" | "rejected";
+
+export interface CalendarImportRequestDocument {
+  requestedBy: string;
+  requesterEmail: string;
+  districtId: string;
+  district: string;
+  schoolId: string;
+  school: string;
+  sourceUrl: string;
+  visibility: "school";
+  status: CalendarImportRequestStatus;
+  requestedAt: FirestoreDate;
+  reviewedAt: FirestoreDate;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  calendarSourceId: string | null;
 }

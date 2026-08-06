@@ -4,48 +4,50 @@ import { useState } from "react";
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
-
-interface ImportedCalendarEvent {
-  title: string;
-  date: string;
-  location: string;
-  description: string;
-}
-
-interface ImportCalendarResponse {
-  events?: ImportedCalendarEvent[];
-  error?: string;
-}
+import { auth } from "../../lib/firebase";
 
 export default function ImportCalendarPage() {
   const [url, setUrl] = useState("");
-  const [events, setEvents] = useState<ImportedCalendarEvent[]>([]);
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  async function importCalendar() {
+  async function requestCalendar() {
     try {
-      setMessage("Importing calendar...");
-
-      const response = await fetch("/api/import-ics", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = (await response.json()) as ImportCalendarResponse;
-
-      if (!response.ok) {
-        setMessage(data.error || "Import failed.");
+      const user = auth.currentUser;
+      if (!user) {
+        setMessage("Sign in before suggesting a calendar.");
         return;
       }
 
-      const importedEvents = data.events ?? [];
-      setEvents(importedEvents);
-      setMessage(`Found ${importedEvents.length} events.`);
+      setSubmitting(true);
+      setMessage("");
+      const token = await user.getIdToken();
+
+      const response = await fetch("/api/calendar-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ sourceUrl: url }),
+      });
+
+      const data = (await response.json()) as {
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setMessage(data.error || "Submission failed.");
+        return;
+      }
+
+      setUrl("");
+      setMessage(data.message || "Calendar submitted for admin review.");
     } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Import failed."));
+      setMessage(getErrorMessage(error, "Submission failed."));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -55,10 +57,11 @@ export default function ImportCalendarPage() {
 
       <div className="mx-auto max-w-2xl">
         <BackButton href="/events" label="Events" />
-        <h1 className="mb-2 text-3xl font-bold">Import Calendar Feed</h1>
+        <h1 className="mb-2 text-3xl font-bold">Suggest a school calendar</h1>
 
         <p className="mb-6 text-sm text-white/70">
-          Paste an ICS calendar feed URL from a school calendar.
+          Paste an official ICS calendar URL. A LinkUp admin will preview and
+          approve it before any events appear.
         </p>
 
         <input
@@ -69,10 +72,11 @@ export default function ImportCalendarPage() {
         />
 
         <button
-          onClick={importCalendar}
-          className="w-full rounded-lg bg-white p-3 font-semibold text-black"
+          onClick={requestCalendar}
+          disabled={submitting || !url.trim()}
+          className="w-full rounded-lg bg-white p-3 font-semibold text-black disabled:opacity-50"
         >
-          Import calendar
+          {submitting ? "Submitting..." : "Submit for review"}
         </button>
 
         {message && (
@@ -80,25 +84,6 @@ export default function ImportCalendarPage() {
             {message}
           </p>
         )}
-
-        <div className="mt-6 grid gap-4">
-          {events.map((event, index) => (
-            <div
-              key={index}
-              className="rounded-xl border border-white/10 bg-white/5 p-4"
-            >
-              <h2 className="text-xl font-semibold">{event.title}</h2>
-              <p className="text-sm text-white/70">{event.date}</p>
-              <p className="text-sm text-white/50">{event.location}</p>
-
-              {event.description && (
-                <p className="mt-3 text-sm text-white/70">
-                  {event.description}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
     </main>
   );

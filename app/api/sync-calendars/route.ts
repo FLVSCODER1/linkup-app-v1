@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 import { getAdminDb } from "@/app/lib/firebase-admin";
+import { fetchPublicCalendarText } from "@/app/lib/calendar/source-url";
 
 export const dynamic = "force-dynamic";
 
@@ -181,18 +182,7 @@ function normalizeCalendarSource(
 }
 
 async function fetchIcsText(sourceUrl: string): Promise<string> {
-  const response = await fetch(sourceUrl, {
-    headers: {
-      "User-Agent": "LinkUp Calendar Sync",
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    throw new Error(`ICS fetch failed with status ${response.status}`);
-  }
-
-  return response.text();
+  return fetchPublicCalendarText(sourceUrl);
 }
 
 async function eventAlreadyExists(sourceId: string): Promise<boolean> {

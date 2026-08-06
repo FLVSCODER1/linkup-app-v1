@@ -204,7 +204,7 @@ export default function EventsPage() {
           backdrop-blur transition hover:scale-105 hover:bg-white/10 active:scale-95
         "
       >
-        Import
+        Suggest calendar
       </button>
     </main>
   );

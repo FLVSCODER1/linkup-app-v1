@@ -181,5 +181,13 @@ service cloud.firestore {
     match /accountVerifications/{document=**} {
       allow read, write: if false;
     }
+
+    match /calendarImportRequests/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /calendarSources/{document=**} {
+      allow read, write: if false;
+    }
   }
 }

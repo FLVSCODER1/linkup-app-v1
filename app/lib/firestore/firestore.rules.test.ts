@@ -76,6 +76,17 @@ async function seedData() {
         uid: "alpha-student",
         lastName: "Student",
       }),
+      setDoc(doc(db, "admins", "alpha-student"), {
+        isAdmin: true,
+      }),
+      setDoc(doc(db, "calendarImportRequests", "calendar-request"), {
+        requestedBy: "alpha-student",
+        status: "pending",
+      }),
+      setDoc(doc(db, "calendarSources", "calendar-source"), {
+        active: true,
+        sourceType: "ics",
+      }),
       setDoc(doc(db, "events", "alpha-school-event"), {
         createdBy: "system",
         status: "published",
@@ -156,6 +167,16 @@ describe("LinkUp Firestore trust boundaries", () => {
     await assertFails(
       getDoc(doc(peerDb, "privateUserProfiles", "alpha-student"))
     );
+  });
+
+  it("keeps admin and calendar moderation records server-only", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(getDoc(doc(db, "admins", "alpha-student")));
+    await assertFails(
+      getDoc(doc(db, "calendarImportRequests", "calendar-request"))
+    );
+    await assertFails(getDoc(doc(db, "calendarSources", "calendar-source")));
   });
 
   it("allows school and district events but denies other schools and districts", async () => {
