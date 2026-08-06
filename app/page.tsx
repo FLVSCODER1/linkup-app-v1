@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "./lib/firebase";
+import { auth } from "./lib/firebase";
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
@@ -11,7 +11,6 @@ import {
   setPersistence,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { getFirebaseAuthErrorMessage } from "./lib/auth/firebase-errors";
 import { hasVerifiedAccount } from "./lib/auth/verification";
 
@@ -94,17 +93,38 @@ export default function LoginPage() {
         return;
       }
 
-      const userSnap = await getDoc(doc(db, "users", user.uid));
+      try {
+        const token = await user.getIdToken(true);
+        const response = await fetch("/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const data = (await response.json()) as {
+          profile?: {
+            profileComplete: boolean;
+            district: string | null;
+            school: string | null;
+          } | null;
+          error?: string;
+        };
 
-      if (!userSnap.exists()) {
-        router.push("/profile/setup");
-        return;
-      }
+        if (!response.ok) {
+          setMessage(
+            data.error || "You're signed in, but we couldn't load your profile."
+          );
+          return;
+        }
 
-      const data = userSnap.data();
-
-      if (!data.profileComplete) {
-        router.push("/profile/setup");
+        if (
+          !data.profile?.profileComplete ||
+          !data.profile.district ||
+          !data.profile.school
+        ) {
+          router.push("/profile/setup");
+          return;
+        }
+      } catch {
+        setMessage("You're signed in, but we couldn't load your profile.");
         return;
       }
 

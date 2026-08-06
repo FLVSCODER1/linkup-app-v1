@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../../lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { auth } from "../../lib/firebase";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import {
   PROFILE_INTERESTS,
   validateProfileSetupInput,
@@ -40,27 +39,44 @@ export default function ProfileSetupPage() {
           return;
         }
 
-        const userRef = doc(db, "users", firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+        const token = await firebaseUser.getIdToken(true);
+        const profileResponse = await fetch("/api/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const profileData = (await profileResponse.json()) as {
+          profile?: {
+            displayName: string;
+            bio: string;
+            grade: string;
+            interests: string[];
+            schoolId: string;
+            district: string | null;
+            school: string | null;
+            profileComplete: boolean;
+          } | null;
+          error?: string;
+        };
+
+        if (!profileResponse.ok) {
+          throw new Error(profileData.error || "Profile lookup failed.");
+        }
 
         if (
-          userSnap.exists() &&
-          userSnap.data().profileComplete &&
-          userSnap.data().district &&
-          userSnap.data().school
+          profileData.profile?.profileComplete &&
+          profileData.profile.district &&
+          profileData.profile.school
         ) {
           router.push("/events");
           return;
         }
 
-        if (userSnap.exists()) {
-          const data = userSnap.data();
-
-          setDisplayName(data.displayName || "");
-          setBio(data.bio || "");
-          setGrade(data.grade || "");
-          setInterests(data.interests || []);
-          setSchoolId(data.schoolId || "");
+        if (profileData.profile) {
+          setDisplayName(profileData.profile.displayName);
+          setBio(profileData.profile.bio);
+          setGrade(profileData.profile.grade);
+          setInterests(profileData.profile.interests);
+          setSchoolId(profileData.profile.schoolId);
         }
 
         if (!firebaseUser.email) {
@@ -91,7 +107,9 @@ export default function ProfileSetupPage() {
         setUser(firebaseUser);
       } catch (error) {
         console.error("Profile setup failed to load:", error);
-        setMessage("We couldn't load profile setup. Please sign out and try again.");
+        setMessage(
+          "We couldn't load profile setup. Please sign out and try again."
+        );
       } finally {
         setLoading(false);
       }

@@ -12,6 +12,48 @@ import { getAdminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: NextRequest) {
+  try {
+    const token = await verifyRequestToken(request);
+
+    if (!token || !isDecodedAccountVerified(token)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const snapshot = await getAdminDb().collection("users").doc(token.uid).get();
+    if (!snapshot.exists) {
+      return NextResponse.json(
+        { profile: null },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const data = snapshot.data();
+    return NextResponse.json(
+      {
+        profile: {
+          displayName:
+            typeof data?.displayName === "string" ? data.displayName : "",
+          bio: typeof data?.bio === "string" ? data.bio : "",
+          grade: typeof data?.grade === "string" ? data.grade : "",
+          interests: Array.isArray(data?.interests) ? data.interests : [],
+          schoolId: typeof data?.schoolId === "string" ? data.schoolId : "",
+          district: typeof data?.district === "string" ? data.district : null,
+          school: typeof data?.school === "string" ? data.school : null,
+          profileComplete: data?.profileComplete === true,
+        },
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error("Profile status lookup failed:", error);
+    return NextResponse.json(
+      { error: "We couldn't load the profile." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const token = await verifyRequestToken(request);

@@ -10,6 +10,9 @@ describe("Firebase authentication errors", () => {
     expect(
       getFirebaseAuthErrorMessage({ code: "auth/invalid-credential" })
     ).toBe("The email or password is incorrect.");
+    expect(
+      getFirebaseAuthErrorMessage({ code: "auth/invalid-login-credentials" })
+    ).toBe("The email or password is incorrect.");
   });
 
   it("does not expose unknown provider errors", () => {

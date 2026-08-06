@@ -19,9 +19,15 @@ export function getFirebaseAuthErrorMessage(
     case "auth/weak-password":
       return "Use a password with at least 8 characters.";
     case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
     case "auth/user-not-found":
     case "auth/wrong-password":
       return "The email or password is incorrect.";
+    case "auth/operation-not-allowed":
+      return "Email and password login is not enabled for this environment.";
+    case "auth/app-not-authorized":
+    case "auth/unauthorized-domain":
+      return "This preview address is not authorized in Firebase yet.";
     case "auth/user-disabled":
       return "This account has been disabled. Contact LinkUp support.";
     case "auth/too-many-requests":
