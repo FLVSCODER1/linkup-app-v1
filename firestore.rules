@@ -1,0 +1,193 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return signedIn()
+        && (
+          request.auth.token.email_verified == true
+          || request.auth.token.get('linkup_verified', false) == true
+        );
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userSchool() {
+      return userDoc().data.school;
+    }
+
+    function userDistrict() {
+      return userDoc().data.district;
+    }
+
+    function publishedEventIsVisible(eventData) {
+      return eventData.status == 'published'
+        && (
+          (
+            eventData.visibility == 'school'
+            && userSchool() != null
+            && userDistrict() != null
+            && eventData.school == userSchool()
+            && eventData.district == userDistrict()
+          )
+          ||
+          (
+            eventData.visibility == 'district'
+            && userDistrict() != null
+            && eventData.district == userDistrict()
+          )
+        );
+    }
+
+    match /users/{userId} {
+      allow read: if isVerified()
+        && (
+          isOwner(userId)
+          || (
+            resource.data.school == userSchool()
+            && resource.data.district == userDistrict()
+          )
+        );
+
+      // Initial identity and school assignment are written only by the
+      // server-side verified profile endpoint.
+      allow create: if false;
+
+      allow update: if isVerified()
+        && isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'grade',
+          'bio',
+          'interests',
+          'profileComplete',
+          'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 50
+        && request.resource.data.grade in ['9', '10', '11', '12']
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 250
+        && request.resource.data.interests is list
+        && request.resource.data.interests.size() <= 10;
+
+      allow delete: if false;
+    }
+
+    // Legal surnames are stored separately from public school profiles and are
+    // available only through authenticated server endpoints.
+    match /privateUserProfiles/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if isVerified() && publishedEventIsVisible(resource.data);
+
+      allow create: if isVerified()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'published'
+        && request.resource.data.visibility == 'school'
+        && request.resource.data.school == userSchool()
+        && request.resource.data.district == userDistrict();
+
+      allow update: if isVerified()
+        && request.auth.uid == resource.data.createdBy
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.school == resource.data.school
+        && request.resource.data.district == resource.data.district
+        && request.resource.data.visibility == resource.data.visibility;
+
+      allow delete: if isVerified()
+        && request.auth.uid == resource.data.createdBy;
+    }
+
+    match /events/{eventId}/attendees/{userId} {
+      allow read: if isVerified()
+        && publishedEventIsVisible(
+          get(/databases/$(database)/documents/events/$(eventId)).data
+        );
+
+      allow create: if isVerified()
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.school == userSchool()
+        && publishedEventIsVisible(
+          get(/databases/$(database)/documents/events/$(eventId)).data
+        );
+
+      allow update: if false;
+
+      allow delete: if isVerified() && request.auth.uid == userId;
+    }
+
+    // Legacy top-level attendee documents are no longer used.
+    match /attendees/{userId} {
+      allow read, write: if false;
+    }
+
+    match /eventPreferences/{prefId} {
+      allow read: if isVerified();
+
+      allow create, update: if isVerified()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.school == userSchool();
+
+      allow delete: if isVerified()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    match /interests/{interestId} {
+      allow read: if isVerified()
+        && (
+          resource.data.fromUserId == request.auth.uid
+          || resource.data.toUserId == request.auth.uid
+        );
+
+      allow create, update: if isVerified()
+        && request.resource.data.fromUserId == request.auth.uid;
+
+      allow delete: if isVerified()
+        && resource.data.fromUserId == request.auth.uid;
+    }
+
+    // Directory, admin-role, and verification records are server-only.
+    match /districts/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /schools/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /schoolDomains/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /admins/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /accountVerifications/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /calendarImportRequests/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /calendarSources/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

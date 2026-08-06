@@ -1,14 +1,17 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { auth } from "../lib/firebase";
 
-type AuthGuardProps = {
-  children: React.ReactNode;
+import { auth } from "../../lib/firebase";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
+
+interface AuthGuardProps {
+  children: ReactNode;
   requireVerifiedEmail?: boolean;
-};
+}
 
 export default function AuthGuard({
   children,
@@ -19,14 +22,17 @@ export default function AuthGuard({
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        router.push("/login");
+        router.replace("/");
         return;
       }
 
-      if (requireVerifiedEmail && !firebaseUser.emailVerified) {
-        router.push("/verify-email");
+      if (
+        requireVerifiedEmail &&
+        !(await hasVerifiedAccount(firebaseUser, true))
+      ) {
+        router.replace("/verify-email");
         return;
       }
 
@@ -34,12 +40,12 @@ export default function AuthGuard({
       setCheckingAuth(false);
     });
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, [router, requireVerifiedEmail]);
 
   if (checkingAuth || !user) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-black text-white">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
         <p className="text-sm text-gray-400">Checking session...</p>
       </main>
     );

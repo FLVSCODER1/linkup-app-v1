@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 
-import { adminApp } from "@/app/lib/firebase-admin";
+import { getFirebaseAdminApp } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
+
+function isSafeEnvironment(): boolean {
+  return (
+    process.env.NODE_ENV === "development" ||
+    process.env.VERCEL_ENV === "preview"
+  );
+}
 
 function isAuthorized(request: NextRequest): boolean {
   const expectedSecret = process.env.DEV_VERIFY_SECRET;
@@ -19,6 +26,13 @@ function isAuthorized(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isSafeEnvironment()) {
+      return NextResponse.json(
+        { success: false, error: "Not found" },
+        { status: 404 }
+      );
+    }
+
     if (!isAuthorized(request)) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -36,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await getAuth(adminApp).updateUser(uid, {
+    await getAuth(getFirebaseAdminApp()).updateUser(uid, {
       emailVerified: true,
     });
 

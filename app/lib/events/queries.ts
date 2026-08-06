@@ -1,7 +1,5 @@
 import {
   collection,
-  doc,
-  getDoc,
   getDocs,
   orderBy,
   query,
@@ -17,14 +15,6 @@ import { removeDuplicateEvents } from "./filter";
 import { applyModerationFilter } from "./moderation";
 import { formatEventDateRange } from "./date";
 import type { FeedEvent, UserProfile } from "./types";
-
-export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const userSnap = await getDoc(doc(db, "users", uid));
-
-  if (!userSnap.exists()) return null;
-
-  return userSnap.data() as UserProfile;
-}
 
 export async function getVisibleFeedEvents(
   profile: UserProfile

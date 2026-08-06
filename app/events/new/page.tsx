@@ -4,9 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+} from "firebase/firestore";
+import NavMenu from "../../components/layout/NavMenu";
+import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
-import NavMenu from "../../components/NavMenu";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
+import type { UserProfile } from "../../lib/events/types";
 
 function slugify(text: string) {
   return text
@@ -19,7 +28,7 @@ function slugify(text: string) {
 export default function NewEventPage() {
   const router = useRouter();
 
-  const [school, setSchool] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
@@ -30,7 +39,12 @@ export default function NewEventPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
-        router.push("/");
+        router.replace("/");
+        return;
+      }
+
+      if (!(await hasVerifiedAccount(user, true))) {
+        router.replace("/verify-email");
         return;
       }
 
@@ -41,7 +55,13 @@ export default function NewEventPage() {
         return;
       }
 
-      setSchool(snap.data().school || "");
+      const profileData = snap.data() as UserProfile;
+      if (!profileData.district) {
+        router.replace("/profile/setup");
+        return;
+      }
+
+      setProfile(profileData);
     });
 
     return () => unsubscribe();
@@ -56,8 +76,14 @@ export default function NewEventPage() {
         return;
       }
 
-      if (!title.trim() || !date.trim()) {
+      if (!title.trim() || !date.trim() || !profile?.district) {
         setMessage("Title and date are required.");
+        return;
+      }
+
+      const startTime = new Date(date);
+      if (Number.isNaN(startTime.getTime())) {
+        setMessage("Choose a valid date and time.");
         return;
       }
 
@@ -69,10 +95,25 @@ export default function NewEventPage() {
         location: location.trim() || "TBD",
         category,
         description: description.trim(),
-        school,
+        district: profile.district,
+        school: profile.school ?? null,
+        visibility: profile.school ? "school" : "district",
+        status: "published",
         createdBy: user.uid,
         source: "user-posted",
-        createdAt: new Date(),
+        imported: false,
+        startTime: Timestamp.fromDate(startTime),
+        endTime: null,
+        attendeeCount: 0,
+        moderationStatus: "pending",
+        suppressionReason: null,
+        relevanceScore: 0,
+        aiCategory: null,
+        reviewedAt: null,
+        reviewedBy: null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        publishedAt: serverTimestamp(),
       });
 
       router.push("/events");
@@ -86,6 +127,7 @@ export default function NewEventPage() {
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
+        <BackButton href="/events" label="Events" />
         <h1 className="mb-2 text-3xl font-bold">Post an Event</h1>
         <p className="mb-6 text-sm text-white/70">
           Create a study group, party, game meetup, or school event.
@@ -101,7 +143,8 @@ export default function NewEventPage() {
 
           <input
             className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-            placeholder="Date / time"
+            aria-label="Event date and time"
+            type="datetime-local"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />

@@ -5,14 +5,17 @@ import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import NavMenu from "../../components/NavMenu";
+import NavMenu from "../../components/layout/NavMenu";
+import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
-import type { FeedEvent } from "../../lib/events/types";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
+import { canUserAccessEvent } from "../../lib/events/access";
+import type { FeedEvent, UserProfile } from "../../lib/events/types";
 
 export default function EventDetailsPage() {
   const router = useRouter();
-  const params = useParams();
-  const eventId = params.eventId as string;
+  const params = useParams<{ eventId: string }>();
+  const eventId = params.eventId;
 
   const [event, setEvent] = useState<FeedEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +29,7 @@ export default function EventDetailsPage() {
           return;
         }
 
-        if (!user.emailVerified) {
+        if (!(await hasVerifiedAccount(user, true))) {
           router.push("/verify-email");
           return;
         }
@@ -38,7 +41,7 @@ export default function EventDetailsPage() {
           return;
         }
 
-        const currentUser = userSnap.data();
+        const currentUser = userSnap.data() as UserProfile;
 
         const eventSnap = await getDoc(doc(db, "events", eventId));
 
@@ -47,17 +50,17 @@ export default function EventDetailsPage() {
           return;
         }
 
-        const eventData = eventSnap.data();
+        const eventData: FeedEvent = {
+          id: eventSnap.id,
+          ...eventSnap.data(),
+        };
 
-        if (eventData.school !== currentUser.school) {
+        if (!canUserAccessEvent(eventData, currentUser)) {
           setMessage("You do not have access to this event.");
           return;
         }
 
-        setEvent({
-          id: eventSnap.id,
-          ...eventData,
-        });
+        setEvent(eventData);
       } catch (error: unknown) {
         setMessage(getErrorMessage(error, "Failed to load event."));
       } finally {
@@ -81,42 +84,39 @@ export default function EventDetailsPage() {
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
-        <button
-          onClick={() => router.back()}
-          className="mb-6 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white hover:bg-white/10"
-        >
-          ← Back
-        </button>
+        <BackButton href="/events" label="Events" />
 
-        {message || !event ? (
+        {message ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-white/70">{message || "Event not found."}</p>
+            <p className="text-white/70">{message}</p>
           </div>
         ) : (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
             <p className="mb-3 text-xs uppercase tracking-wide text-white/40">
-              {event.category || "event"}
+              {event?.category || "event"}
             </p>
 
             <h1 className="text-4xl font-bold">
-              {event.title || "Untitled Event"}
+              {event?.title || "Untitled Event"}
             </h1>
 
             <div className="mt-5 space-y-2 text-sm text-white/70">
-              <p>📅 {event.date || "Date TBD"}</p>
-              <p>📍 {event.location || "Location TBD"}</p>
-              {event.school && <p>🏫 {event.school}</p>}
+              <p>📅 {event?.date || "Date TBD"}</p>
+              <p>📍 {event?.location || "Location TBD"}</p>
+              {event?.school && <p>🏫 {event.school}</p>}
             </div>
 
             <div className="mt-6">
               <h2 className="mb-2 text-lg font-semibold">Description</h2>
               <p className="leading-relaxed text-white/70">
-                {event.description || "No description provided."}
+                {event?.description || "No description provided."}
               </p>
             </div>
 
             <button
-              onClick={() => router.push(`/event/${event.id}`)}
+              onClick={() =>
+                event && router.push(`/events/${event.id}/preferences`)
+              }
               className="mt-8 w-full rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95"
             >
               Join / Set Preferences

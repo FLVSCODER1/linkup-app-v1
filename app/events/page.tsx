@@ -2,79 +2,99 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../lib/firebase";
-import NavMenu from "../components/NavMenu";
-import EventCard from "../components/EventCard";
+import { fetchCurrentUserProfile } from "../lib/auth/profile-client";
+import { hasVerifiedAccount } from "../lib/auth/verification";
+import { TimeoutError, withTimeout } from "../lib/async/with-timeout";
+import NavMenu from "../components/layout/NavMenu";
+import EventCard from "../components/events/EventCard";
 
-import { getUserProfile, getVisibleFeedEvents } from "../lib/events/queries";
+import { getVisibleFeedEvents } from "../lib/events/queries";
 import type { FeedEvent, UserProfile } from "../lib/events/types";
 
 export default function EventsPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [events, setEvents] = useState<FeedEvent[]>([]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       setProfile(null);
       setEvents([]);
       setError(null);
-
-      if (!currentUser) {
-        router.push("/");
-        return;
-      }
-
-      if (!currentUser.emailVerified) {
-        router.push("/verify-email");
-        return;
-      }
+      setLoadingProfile(true);
+      setLoadingEvents(false);
 
       try {
-        setLoadingProfile(true);
+        if (!currentUser) {
+          router.push("/");
+          return;
+        }
 
-        const loadedProfile = await getUserProfile(currentUser.uid);
+        if (!(await hasVerifiedAccount(currentUser, true))) {
+          router.push("/verify-email");
+          return;
+        }
 
-        if (!loadedProfile?.school && !loadedProfile?.district) {
+        const loadedProfile = await withTimeout(
+          fetchCurrentUserProfile(currentUser),
+          10_000,
+          "Profile loading timed out."
+        );
+
+        if (!loadedProfile?.profileComplete || !loadedProfile.district) {
           router.push("/profile/setup");
           return;
         }
 
-        setProfile(loadedProfile);
+        setProfile({
+          displayName: loadedProfile.displayName,
+          bio: loadedProfile.bio,
+          interests: loadedProfile.interests,
+          district: loadedProfile.district,
+          school: loadedProfile.school,
+          schoolId: loadedProfile.schoolId,
+          profileComplete: loadedProfile.profileComplete,
+        });
       } catch (err) {
         console.error("Error loading profile:", err);
-        setError("Could not load your profile.");
+        setError("We couldn't load your profile. Please try again.");
       } finally {
         setLoadingProfile(false);
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [reloadKey, router]);
 
   useEffect(() => {
     async function loadEvents() {
-      if (!user || loadingProfile || !profile) return;
+      if (loadingProfile || !profile) return;
 
       try {
         setLoadingEvents(true);
         setError(null);
 
-        const visibleEvents = await getVisibleFeedEvents(profile);
+        const visibleEvents = await withTimeout(
+          getVisibleFeedEvents(profile),
+          10_000,
+          "Events are taking longer than expected."
+        );
         setEvents(visibleEvents);
       } catch (err) {
         console.error("Error loading events:", err);
         setError(
-          "Could not load events. Firestore may need a composite index, because databases apparently require paperwork."
+          err instanceof TimeoutError
+            ? err.message
+            : "We couldn't load events right now. Please try again."
         );
       } finally {
         setLoadingEvents(false);
@@ -82,13 +102,15 @@ export default function EventsPage() {
     }
 
     loadEvents();
-  }, [user, profile, loadingProfile]);
+  }, [profile, loadingProfile]);
 
   const loading = loadingProfile || loadingEvents;
 
   const subtitle = useMemo(() => {
     if (!profile?.district) {
-      return "Finish your profile to see events near your school.";
+      return loadingProfile
+        ? "Loading events for your school..."
+        : "Your school determines which events you can see.";
     }
 
     if (profile.school) {
@@ -96,7 +118,7 @@ export default function EventsPage() {
     }
 
     return `Showing district events for ${profile.district}.`;
-  }, [profile]);
+  }, [profile, loadingProfile]);
 
   return (
     <main className="min-h-screen bg-black p-6 pb-28 text-white">
@@ -113,12 +135,6 @@ export default function EventsPage() {
           <p className="mt-2 text-sm text-white/70">{subtitle}</p>
         </header>
 
-        {error && (
-          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
         {loading ? (
           <div className="grid gap-4">
             {[1, 2, 3].map((item) => (
@@ -128,15 +144,30 @@ export default function EventsPage() {
               />
             ))}
           </div>
+        ) : error ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-red-100"
+          >
+            <h2 className="text-lg font-semibold">Events are unavailable</h2>
+            <p className="mt-2 text-sm text-red-100/80">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((current) => current + 1)}
+              className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-95"
+            >
+              Try again
+            </button>
+          </div>
         ) : events.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold">No upcoming events found</h2>
+            <h2 className="text-lg font-semibold">
+              No upcoming events at {profile?.school || profile?.district}
+            </h2>
 
             <p className="mt-2 text-sm text-white/70">
-              Imported calendars may be synced, but nothing relevant is ready for
-              the feed yet. The temporary filter is also suppressing low-value
-              calendar junk like practices, buses, lockers, and other thrilling
-              achievements of institutional scheduling.
+              Nothing relevant is scheduled right now. Check back later or create
+              an event for your school community.
             </p>
           </div>
         ) : (
@@ -154,25 +185,15 @@ export default function EventsPage() {
                   isJoined={false}
                   attendeeCount={event.attendeeCount ?? 0}
                   onClick={() => router.push(`/events/${event.id}`)}
-                  onJoinClick={() => router.push(`/event/${event.id}`)}
+                  onJoinClick={() =>
+                    router.push(`/events/${event.id}/preferences`)
+                  }
                 />
               </div>
             ))}
           </div>
         )}
       </section>
-
-      <button
-        type="button"
-        onClick={() => router.push("/events/new")}
-        className="
-          fixed bottom-6 left-1/2 z-50 -translate-x-1/2
-          rounded-full bg-white px-6 py-3 text-sm font-semibold
-          text-black shadow-2xl transition hover:scale-105 active:scale-95
-        "
-      >
-        + Post Event
-      </button>
 
       <button
         type="button"
@@ -183,7 +204,7 @@ export default function EventsPage() {
           backdrop-blur transition hover:scale-105 hover:bg-white/10 active:scale-95
         "
       >
-        Import
+        Suggest calendar
       </button>
     </main>
   );

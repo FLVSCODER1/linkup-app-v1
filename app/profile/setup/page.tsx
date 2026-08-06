@@ -2,96 +2,101 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../../lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { getErrorMessage } from "../../lib/errors";
-
-function getSchoolFromEmail(email: string) {
-  const lower = email.trim().toLowerCase();
-
-  if (
-    lower.endsWith("@students.ksd.org") ||
-    lower.endsWith("@ksd.org")
-  ) {
-    return "Kennewick School District";
-  }
-
-  if (lower.endsWith("@pasco.k12.wa.us")) {
-    return "Pasco School District";
-  }
-
-  if (lower.endsWith("@richland.k12.wa.us")) {
-    return "Richland School District";
-  }
-
-  if (lower.endsWith("@ufl.edu")) {
-    return "University of Florida Test";
-  }
-
-  if (lower.endsWith("@g.risd.org")) {
-    return "University of Florida Test";
-  }
-
-  return "Unknown School";
-}
-
-const interestOptions = [
-  "Sports",
-  "Music",
-  "Gaming",
-  "Art",
-  "STEM",
-  "Volunteering",
-  "Clubs",
-  "Theater",
-  "Business",
-  "Fitness",
-];
+import { auth } from "../../lib/firebase";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import {
+  PROFILE_INTERESTS,
+  validateProfileSetupInput,
+} from "../../lib/auth/profile-validation";
+import type { SchoolDirectoryContext } from "../../lib/auth/school-directory";
+import { fetchCurrentUserProfile } from "../../lib/auth/profile-client";
+import { hasVerifiedAccount } from "../../lib/auth/verification";
 
 export default function ProfileSetupPage() {
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [grade, setGrade] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
+  const [schoolId, setSchoolId] = useState("");
+  const [schoolContext, setSchoolContext] =
+    useState<SchoolDirectoryContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        router.push("/");
-        return;
+      try {
+        if (!firebaseUser) {
+          router.push("/");
+          return;
+        }
+
+        if (!(await hasVerifiedAccount(firebaseUser, true))) {
+          router.push("/verify-email");
+          return;
+        }
+
+        const profile = await fetchCurrentUserProfile(firebaseUser);
+
+        if (
+          profile?.profileComplete &&
+          profile.district &&
+          profile.school
+        ) {
+          router.push("/events");
+          return;
+        }
+
+        if (profile) {
+          setFirstName(profile.firstName);
+          setLastName(profile.lastName);
+          setDisplayName(profile.displayName);
+          setBio(profile.bio);
+          setGrade(profile.grade);
+          setInterests(profile.interests);
+          setSchoolId(profile.schoolId);
+        }
+
+        if (!firebaseUser.email) {
+          setMessage("Your account does not have an email address.");
+          return;
+        }
+
+        const response = await fetch("/api/auth/school-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: firebaseUser.email }),
+        });
+        const directoryData = (await response.json()) as {
+          context?: SchoolDirectoryContext;
+          error?: string;
+        };
+
+        if (!response.ok || !directoryData.context) {
+          setMessage(directoryData.error || "Your school is not supported yet.");
+          return;
+        }
+
+        setSchoolContext(directoryData.context);
+        if (directoryData.context.schools.length === 1) {
+          setSchoolId(directoryData.context.schools[0].id);
+        }
+
+        setUser(firebaseUser);
+      } catch (error) {
+        console.error("Profile setup failed to load:", error);
+        setMessage(
+          "We couldn't load profile setup. Please sign out and try again."
+        );
+      } finally {
+        setLoading(false);
       }
-
-      if (!firebaseUser.emailVerified) {
-        router.push("/verify-email");
-        return;
-      }
-
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists() && userSnap.data().profileComplete) {
-        router.push("/events");
-        return;
-      }
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-
-        setDisplayName(data.displayName || "");
-        setBio(data.bio || "");
-        setGrade(data.grade || "");
-        setInterests(data.interests || []);
-      }
-
-      setUser(firebaseUser);
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -108,8 +113,8 @@ export default function ProfileSetupPage() {
   async function handleSaveProfile() {
     if (!user || !user.email) return;
 
-    if (!displayName.trim()) {
-      setMessage("Please enter a display name.");
+    if (!firstName.trim() || !lastName.trim()) {
+      setMessage("Please enter your first and last name.");
       return;
     }
 
@@ -122,24 +127,40 @@ export default function ProfileSetupPage() {
     setMessage("");
 
     try {
-      const school = getSchoolFromEmail(user.email);
-
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email: user.email,
-        school,
-        displayName: displayName.trim(),
-        bio: bio.trim(),
+      const validation = validateProfileSetupInput({
+        firstName,
+        lastName,
+        displayName,
+        bio,
         grade,
         interests,
-        profileComplete: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        schoolId,
       });
 
+      if (!validation.valid) {
+        setMessage(validation.error);
+        return;
+      }
+
+      const token = await user.getIdToken(true);
+      const response = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(validation.value),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setMessage(data.error || "We couldn't save your profile.");
+        return;
+      }
+
       router.push("/events");
-    } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to save profile."));
+    } catch {
+      setMessage("We couldn't save your profile.");
     } finally {
       setSaving(false);
     }
@@ -159,7 +180,7 @@ export default function ProfileSetupPage() {
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold">Set up your profile</h1>
           <p className="text-sm text-white/70">
-            Finish your profile so LinkUp can match you with events and people
+            Finish your profile so LinkUp can recommend events and people
             at your school.
           </p>
         </div>
@@ -167,12 +188,65 @@ export default function ProfileSetupPage() {
         <div className="space-y-5 rounded-2xl border border-white/10 bg-white/5 p-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-white/80">
-              Display name
+              School
+            </label>
+            <select
+              value={schoolId}
+              onChange={(event) => setSchoolId(event.target.value)}
+              disabled={!schoolContext || schoolContext.schools.length === 1}
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30 disabled:opacity-70"
+            >
+              <option value="">Select your school</option>
+              {schoolContext?.schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+            {schoolContext && (
+              <p className="mt-2 text-xs text-white/50">
+                {schoolContext.districtName}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              First name
+            </label>
+            <input
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              autoComplete="given-name"
+              placeholder="First name"
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              Last name
+            </label>
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              autoComplete="family-name"
+              placeholder="Last name"
+              className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
+            />
+            <p className="mt-2 text-xs text-white/50">
+              Used for account verification and kept private by default.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white/80">
+              Display name <span className="text-white/40">(optional)</span>
             </label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="What should people call you?"
+              placeholder={firstName || "What should people call you?"}
               className="w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none focus:border-white/30"
             />
           </div>
@@ -192,7 +266,6 @@ export default function ProfileSetupPage() {
               <option value="10">10th grade</option>
               <option value="11">11th grade</option>
               <option value="12">12th grade</option>
-              <option value="college">College</option>
             </select>
           </div>
 
@@ -213,9 +286,13 @@ export default function ProfileSetupPage() {
             <label className="mb-3 block text-sm font-medium text-white/80">
               Interests
             </label>
+            <p className="mb-3 text-sm text-white/60">
+              Choose interests to help LinkUp match you with students who enjoy
+              similar activities.
+            </p>
 
             <div className="flex flex-wrap gap-2">
-              {interestOptions.map((interest) => {
+              {PROFILE_INTERESTS.map((interest) => {
                 const selected = interests.includes(interest);
 
                 return (

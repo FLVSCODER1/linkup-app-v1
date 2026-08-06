@@ -1,4 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+import { hasAdminRole } from "@/app/lib/auth/admin.server";
+import { verifyRequestToken } from "@/app/lib/auth/server-auth";
+import { fetchPublicCalendarText } from "@/app/lib/calendar/source-url";
 
 function parseICSDate(value: string) {
   if (!value) return "";
@@ -32,27 +36,15 @@ function getField(block: string, field: string) {
   return match ? match[1].trim() : "";
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const token = await verifyRequestToken(request);
+    if (!token || !(await hasAdminRole(token.uid, "calendar_reviewer"))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { url } = await request.json();
-
-    if (!url || typeof url !== "string") {
-      return NextResponse.json(
-        { error: "Missing calendar URL." },
-        { status: 400 }
-      );
-    }
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Could not fetch calendar." },
-        { status: 400 }
-      );
-    }
-
-    const text = await response.text();
+    const text = await fetchPublicCalendarText(url);
     const eventBlocks = text.split("BEGIN:VEVENT").slice(1);
 
     const events = eventBlocks.map((block) => {
@@ -71,9 +63,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ events });
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Calendar preview failed.";
     return NextResponse.json(
-      { error: "Import failed. Calendar goblin escaped." },
+      { error: message },
       { status: 500 }
     );
   }
