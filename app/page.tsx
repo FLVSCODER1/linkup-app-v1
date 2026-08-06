@@ -12,6 +12,7 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { getFirebaseAuthErrorMessage } from "./lib/auth/firebase-errors";
+import { fetchCurrentUserProfile } from "./lib/auth/profile-client";
 import { hasVerifiedAccount } from "./lib/auth/verification";
 
 export default function LoginPage() {
@@ -94,31 +95,12 @@ export default function LoginPage() {
       }
 
       try {
-        const token = await user.getIdToken(true);
-        const response = await fetch("/api/auth/profile", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        });
-        const data = (await response.json()) as {
-          profile?: {
-            profileComplete: boolean;
-            district: string | null;
-            school: string | null;
-          } | null;
-          error?: string;
-        };
-
-        if (!response.ok) {
-          setMessage(
-            data.error || "You're signed in, but we couldn't load your profile."
-          );
-          return;
-        }
+        const profile = await fetchCurrentUserProfile(user);
 
         if (
-          !data.profile?.profileComplete ||
-          !data.profile.district ||
-          !data.profile.school
+          !profile?.profileComplete ||
+          !profile.district ||
+          !profile.school
         ) {
           router.push("/profile/setup");
           return;

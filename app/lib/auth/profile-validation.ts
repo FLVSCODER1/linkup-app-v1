@@ -36,6 +36,13 @@ export function buildStoredProfileIdentity(profile: ProfileSetupInput) {
   };
 }
 
+export function hasCompleteProfileIdentity(
+  firstName: string,
+  lastName: string
+): boolean {
+  return firstName.trim().length > 0 && lastName.trim().length > 0;
+}
+
 const PERSON_NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}'’.-]*$/u;
 
 type ProfileValidationResult =

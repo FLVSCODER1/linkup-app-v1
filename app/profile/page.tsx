@@ -2,51 +2,77 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+
+import { auth } from "../lib/firebase";
 import NavMenu from "../components/layout/NavMenu";
-import { getErrorMessage } from "../lib/errors";
+import { withTimeout } from "../lib/async/with-timeout";
+import { fetchCurrentUserProfile } from "../lib/auth/profile-client";
+import { validateProfileSetupInput } from "../lib/auth/profile-validation";
 import { hasVerifiedAccount } from "../lib/auth/verification";
 
 export default function ProfilePage() {
   const router = useRouter();
 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [grade, setGrade] = useState("");
   const [bio, setBio] = useState("");
   const [school, setSchool] = useState("");
+  const [schoolId, setSchoolId] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/");
-        return;
+      try {
+        setLoading(true);
+        setLoadError("");
+
+        if (!user) {
+          router.replace("/");
+          return;
+        }
+
+        if (!(await hasVerifiedAccount(user, true))) {
+          router.replace("/verify-email");
+          return;
+        }
+
+        const profile = await withTimeout(
+          fetchCurrentUserProfile(user),
+          10_000,
+          "Profile loading timed out."
+        );
+
+        if (!profile) {
+          router.replace("/profile/setup");
+          return;
+        }
+
+        setFirstName(profile.firstName);
+        setLastName(profile.lastName);
+        setDisplayName(profile.displayName);
+        setGrade(profile.grade);
+        setBio(profile.bio);
+        setSchool(profile.school || "");
+        setSchoolId(profile.schoolId);
+        setInterests(profile.interests);
+      } catch (error) {
+        console.error("Profile failed to load:", error);
+        setLoadError("We couldn't load your profile. Please try again.");
+      } finally {
+        setLoading(false);
       }
-
-      if (!(await hasVerifiedAccount(user, true))) {
-        router.replace("/verify-email");
-        return;
-      }
-
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-
-      if (userSnap.exists()) {
-        const data = userSnap.data();
-
-        setDisplayName(data.displayName || "");
-        setGrade(data.grade || "");
-        setBio(data.bio || "");
-        setSchool(data.school || "");
-      }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [reloadKey, router]);
 
   async function saveProfile() {
     try {
@@ -57,27 +83,45 @@ export default function ProfilePage() {
         return;
       }
 
-      if (!displayName.trim()) {
-        setMessage("Display name is required.");
-        return;
-      }
-
-      if (!grade) {
-        setMessage("Grade is required.");
-        return;
-      }
-
-      await updateDoc(doc(db, "users", user.uid), {
-        displayName: displayName.trim(),
+      setSaving(true);
+      setMessage("");
+      const validation = validateProfileSetupInput({
+        firstName,
+        lastName,
+        displayName,
         grade,
-        bio: bio.trim(),
-        profileComplete: true,
-        updatedAt: serverTimestamp(),
+        bio,
+        interests,
+        schoolId,
       });
+
+      if (!validation.valid) {
+        setMessage(validation.error);
+        return;
+      }
+
+      const token = await user.getIdToken(true);
+      const response = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(validation.value),
+      });
+      const data = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setMessage(data.error || "Failed to save profile.");
+        return;
+      }
 
       setMessage("Profile saved.");
     } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to save profile."));
+      console.error("Profile failed to save:", error);
+      setMessage("Failed to save profile.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -85,6 +129,36 @@ export default function ProfilePage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
         <p className="text-white/70">Loading profile...</p>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-black p-6 text-white">
+        <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-red-500/10 p-6">
+          <h1 className="text-xl font-semibold">Profile unavailable</h1>
+          <p className="mt-2 text-sm text-red-100/80">{loadError}</p>
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setReloadKey((current) => current + 1)}
+              className="flex-1 rounded-xl bg-white px-4 py-3 font-semibold text-black"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await signOut(auth);
+                router.replace("/");
+              }}
+              className="flex-1 rounded-xl border border-white/10 px-4 py-3 font-semibold"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
       </main>
     );
   }
@@ -101,12 +175,31 @@ export default function ProfilePage() {
         </p>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
+          <label className="mb-2 block text-sm text-white/70">First name</label>
+          <input
+            className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
+            value={firstName}
+            autoComplete="given-name"
+            onChange={(e) => setFirstName(e.target.value)}
+          />
+
+          <label className="mb-2 block text-sm text-white/70">Last name</label>
+          <input
+            className="w-full rounded-lg bg-white/10 p-3 outline-none"
+            value={lastName}
+            autoComplete="family-name"
+            onChange={(e) => setLastName(e.target.value)}
+          />
+          <p className="mb-4 mt-2 text-xs text-white/40">
+            Kept private and used for account verification.
+          </p>
+
           <label className="mb-2 block text-sm text-white/70">
-            Display name
+            Display name <span className="text-white/40">(optional)</span>
           </label>
           <input
             className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
-            placeholder="Display name"
+            placeholder={firstName || "Display name"}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -161,9 +254,10 @@ export default function ProfilePage() {
 
           <button
             onClick={saveProfile}
-            className="w-full rounded-lg bg-white p-3 font-semibold text-black"
+            disabled={saving}
+            className="w-full rounded-lg bg-white p-3 font-semibold text-black disabled:opacity-50"
           >
-            Save profile
+            {saving ? "Saving..." : "Save profile"}
           </button>
 
           {message && (

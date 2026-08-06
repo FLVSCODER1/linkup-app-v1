@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   buildStoredProfileIdentity,
+  hasCompleteProfileIdentity,
   validateProfileSetupInput,
 } from "@/app/lib/auth/profile-validation";
 import { validateSchoolSelection } from "@/app/lib/auth/school-directory";
@@ -37,19 +38,19 @@ export async function GET(request: NextRequest) {
 
     const data = snapshot.data();
     const privateData = privateSnapshot.data();
+    const firstName =
+      typeof data?.firstName === "string"
+        ? data.firstName
+        : typeof data?.displayName === "string"
+          ? data.displayName
+          : "";
+    const lastName =
+      typeof privateData?.lastName === "string" ? privateData.lastName : "";
     return NextResponse.json(
       {
         profile: {
-          firstName:
-            typeof data?.firstName === "string"
-              ? data.firstName
-              : typeof data?.displayName === "string"
-                ? data.displayName
-                : "",
-          lastName:
-            typeof privateData?.lastName === "string"
-              ? privateData.lastName
-              : "",
+          firstName,
+          lastName,
           displayName:
             typeof data?.displayName === "string" ? data.displayName : "",
           bio: typeof data?.bio === "string" ? data.bio : "",
@@ -58,7 +59,9 @@ export async function GET(request: NextRequest) {
           schoolId: typeof data?.schoolId === "string" ? data.schoolId : "",
           district: typeof data?.district === "string" ? data.district : null,
           school: typeof data?.school === "string" ? data.school : null,
-          profileComplete: data?.profileComplete === true,
+          profileComplete:
+            data?.profileComplete === true &&
+            hasCompleteProfileIdentity(firstName, lastName),
         },
       },
       { headers: { "Cache-Control": "no-store" } }

@@ -2,92 +2,115 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../lib/firebase";
+import { fetchCurrentUserProfile } from "../lib/auth/profile-client";
 import { hasVerifiedAccount } from "../lib/auth/verification";
+import { TimeoutError, withTimeout } from "../lib/async/with-timeout";
 import NavMenu from "../components/layout/NavMenu";
 import EventCard from "../components/events/EventCard";
 
-import { getUserProfile, getVisibleFeedEvents } from "../lib/events/queries";
+import { getVisibleFeedEvents } from "../lib/events/queries";
 import type { FeedEvent, UserProfile } from "../lib/events/types";
 
 export default function EventsPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [events, setEvents] = useState<FeedEvent[]>([]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       setProfile(null);
       setEvents([]);
       setError(null);
-
-      if (!currentUser) {
-        router.push("/");
-        return;
-      }
-
-      if (!(await hasVerifiedAccount(currentUser, true))) {
-        router.push("/verify-email");
-        return;
-      }
+      setLoadingProfile(true);
+      setLoadingEvents(false);
 
       try {
-        setLoadingProfile(true);
+        if (!currentUser) {
+          router.push("/");
+          return;
+        }
 
-        const loadedProfile = await getUserProfile(currentUser.uid);
+        if (!(await hasVerifiedAccount(currentUser, true))) {
+          router.push("/verify-email");
+          return;
+        }
 
-        if (!loadedProfile?.district) {
+        const loadedProfile = await withTimeout(
+          fetchCurrentUserProfile(currentUser),
+          10_000,
+          "Profile loading timed out."
+        );
+
+        if (!loadedProfile?.profileComplete || !loadedProfile.district) {
           router.push("/profile/setup");
           return;
         }
 
-        setProfile(loadedProfile);
+        setProfile({
+          displayName: loadedProfile.displayName,
+          bio: loadedProfile.bio,
+          interests: loadedProfile.interests,
+          district: loadedProfile.district,
+          school: loadedProfile.school,
+          schoolId: loadedProfile.schoolId,
+          profileComplete: loadedProfile.profileComplete,
+        });
       } catch (err) {
         console.error("Error loading profile:", err);
-        setError("Could not load your profile.");
+        setError("We couldn't load your profile. Please try again.");
       } finally {
         setLoadingProfile(false);
       }
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, [reloadKey, router]);
 
   useEffect(() => {
     async function loadEvents() {
-      if (!user || loadingProfile || !profile) return;
+      if (loadingProfile || !profile) return;
 
       try {
         setLoadingEvents(true);
         setError(null);
 
-        const visibleEvents = await getVisibleFeedEvents(profile);
+        const visibleEvents = await withTimeout(
+          getVisibleFeedEvents(profile),
+          10_000,
+          "Events are taking longer than expected."
+        );
         setEvents(visibleEvents);
       } catch (err) {
         console.error("Error loading events:", err);
-        setError("We couldn't load events right now. Please try again.");
+        setError(
+          err instanceof TimeoutError
+            ? err.message
+            : "We couldn't load events right now. Please try again."
+        );
       } finally {
         setLoadingEvents(false);
       }
     }
 
     loadEvents();
-  }, [user, profile, loadingProfile]);
+  }, [profile, loadingProfile]);
 
   const loading = loadingProfile || loadingEvents;
 
   const subtitle = useMemo(() => {
     if (!profile?.district) {
-      return "Finish your profile to see events near your school.";
+      return loadingProfile
+        ? "Loading events for your school..."
+        : "Your school determines which events you can see.";
     }
 
     if (profile.school) {
@@ -95,7 +118,7 @@ export default function EventsPage() {
     }
 
     return `Showing district events for ${profile.district}.`;
-  }, [profile]);
+  }, [profile, loadingProfile]);
 
   return (
     <main className="min-h-screen bg-black p-6 pb-28 text-white">
@@ -130,7 +153,7 @@ export default function EventsPage() {
             <p className="mt-2 text-sm text-red-100/80">{error}</p>
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={() => setReloadKey((current) => current + 1)}
               className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-95"
             >
               Try again
@@ -138,13 +161,13 @@ export default function EventsPage() {
           </div>
         ) : events.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold">No upcoming events found</h2>
+            <h2 className="text-lg font-semibold">
+              No upcoming events at {profile?.school || profile?.district}
+            </h2>
 
             <p className="mt-2 text-sm text-white/70">
-              Imported calendars may be synced, but nothing relevant is ready for
-              the feed yet. The temporary filter is also suppressing low-value
-              calendar junk like practices, buses, lockers, and other thrilling
-              achievements of institutional scheduling.
+              Nothing relevant is scheduled right now. Check back later or create
+              an event for your school community.
             </p>
           </div>
         ) : (

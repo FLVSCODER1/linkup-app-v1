@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildStoredProfileIdentity,
+  hasCompleteProfileIdentity,
   validateProfileSetupInput,
 } from "./profile-validation";
 
@@ -50,6 +51,11 @@ describe("profile setup validation", () => {
       },
       privateIdentity: { lastName: "Morgan" },
     });
+  });
+
+  it("requires both private identity fields before onboarding is complete", () => {
+    expect(hasCompleteProfileIdentity("Taylor", "Morgan")).toBe(true);
+    expect(hasCompleteProfileIdentity("Taylor", "")).toBe(false);
   });
 
   it("rejects invalid schools, grades, and interests", () => {

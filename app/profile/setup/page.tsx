@@ -286,6 +286,10 @@ export default function ProfileSetupPage() {
             <label className="mb-3 block text-sm font-medium text-white/80">
               Interests
             </label>
+            <p className="mb-3 text-sm text-white/60">
+              Choose interests to help LinkUp match you with students who enjoy
+              similar activities.
+            </p>
 
             <div className="flex flex-wrap gap-2">
               {PROFILE_INTERESTS.map((interest) => {
