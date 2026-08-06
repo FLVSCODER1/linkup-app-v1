@@ -29,68 +29,72 @@ export default function ProfileSetupPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        router.push("/");
-        return;
-      }
+      try {
+        if (!firebaseUser) {
+          router.push("/");
+          return;
+        }
 
-      if (!(await hasVerifiedAccount(firebaseUser, true))) {
-        router.push("/verify-email");
-        return;
-      }
+        if (!(await hasVerifiedAccount(firebaseUser, true))) {
+          router.push("/verify-email");
+          return;
+        }
 
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+        const userRef = doc(db, "users", firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
 
-      if (
-        userSnap.exists() &&
-        userSnap.data().profileComplete &&
-        userSnap.data().district &&
-        userSnap.data().school
-      ) {
-        router.push("/events");
-        return;
-      }
+        if (
+          userSnap.exists() &&
+          userSnap.data().profileComplete &&
+          userSnap.data().district &&
+          userSnap.data().school
+        ) {
+          router.push("/events");
+          return;
+        }
 
-      if (userSnap.exists()) {
-        const data = userSnap.data();
+        if (userSnap.exists()) {
+          const data = userSnap.data();
 
-        setDisplayName(data.displayName || "");
-        setBio(data.bio || "");
-        setGrade(data.grade || "");
-        setInterests(data.interests || []);
-        setSchoolId(data.schoolId || "");
-      }
+          setDisplayName(data.displayName || "");
+          setBio(data.bio || "");
+          setGrade(data.grade || "");
+          setInterests(data.interests || []);
+          setSchoolId(data.schoolId || "");
+        }
 
-      if (!firebaseUser.email) {
-        setMessage("Your account does not have an email address.");
+        if (!firebaseUser.email) {
+          setMessage("Your account does not have an email address.");
+          return;
+        }
+
+        const response = await fetch("/api/auth/school-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: firebaseUser.email }),
+        });
+        const directoryData = (await response.json()) as {
+          context?: SchoolDirectoryContext;
+          error?: string;
+        };
+
+        if (!response.ok || !directoryData.context) {
+          setMessage(directoryData.error || "Your school is not supported yet.");
+          return;
+        }
+
+        setSchoolContext(directoryData.context);
+        if (directoryData.context.schools.length === 1) {
+          setSchoolId(directoryData.context.schools[0].id);
+        }
+
+        setUser(firebaseUser);
+      } catch (error) {
+        console.error("Profile setup failed to load:", error);
+        setMessage("We couldn't load profile setup. Please sign out and try again.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const response = await fetch("/api/auth/school-context", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: firebaseUser.email }),
-      });
-      const directoryData = (await response.json()) as {
-        context?: SchoolDirectoryContext;
-        error?: string;
-      };
-
-      if (!response.ok || !directoryData.context) {
-        setMessage(directoryData.error || "Your school is not supported yet.");
-        setLoading(false);
-        return;
-      }
-
-      setSchoolContext(directoryData.context);
-      if (directoryData.context.schools.length === 1) {
-        setSchoolId(directoryData.context.schools[0].id);
-      }
-
-      setUser(firebaseUser);
-      setLoading(false);
     });
 
     return () => unsubscribe();

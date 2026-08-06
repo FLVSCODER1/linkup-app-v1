@@ -6,9 +6,10 @@ export async function getAccountVerificationMethod(
   user: User,
   forceRefresh = false
 ): Promise<AccountVerificationMethod | null> {
-  if (user.emailVerified) return "email";
-
   const token = await user.getIdTokenResult(forceRefresh);
+
+  if (user.emailVerified || token.claims.email_verified === true) return "email";
+
   return token.claims.linkup_verified === true ? "manual" : null;
 }
 
