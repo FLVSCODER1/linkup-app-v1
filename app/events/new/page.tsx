@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { getErrorMessage } from "../../lib/errors";
 import NavMenu from "../../components/NavMenu";
 
 function slugify(text: string) {
@@ -75,8 +76,8 @@ export default function NewEventPage() {
       });
 
       router.push("/events");
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to create event."));
     }
   }
 

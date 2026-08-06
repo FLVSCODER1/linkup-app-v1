@@ -91,7 +91,7 @@ export default function ImportEventsPage() {
       }
 
       setMessage(`Imported ${importedCount} events.`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setMessage("Invalid JSON. Your brackets have betrayed you.");
       console.error(error);
     }

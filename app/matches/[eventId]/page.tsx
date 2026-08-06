@@ -14,11 +14,12 @@ import {
 } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
 import EventCard from "../../components/EventCard";
+import type { FeedEvent } from "../../lib/events/types";
 
 export default function EventsPage() {
   const router = useRouter();
 
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [joinedEventIds, setJoinedEventIds] = useState<string[]>([]);
   const [attendeeCounts, setAttendeeCounts] = useState<Record<string, number>>(

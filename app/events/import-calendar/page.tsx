@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import NavMenu from "../../components/NavMenu";
+import { getErrorMessage } from "../../lib/errors";
+import type { ImportedCalendarEvent } from "../../lib/events/types";
 
 export default function ImportCalendarPage() {
   const [url, setUrl] = useState("");
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<ImportedCalendarEvent[]>([]);
   const [message, setMessage] = useState("");
 
   async function importCalendar() {
@@ -29,8 +31,8 @@ export default function ImportCalendarPage() {
 
       setEvents(data.events || []);
       setMessage(`Found ${data.events.length} events.`);
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Import failed."));
     }
   }
 

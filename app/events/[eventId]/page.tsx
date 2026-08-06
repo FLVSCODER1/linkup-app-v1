@@ -6,13 +6,15 @@ import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import NavMenu from "../../components/NavMenu";
+import { getErrorMessage } from "../../lib/errors";
+import type { FeedEvent } from "../../lib/events/types";
 
 export default function EventDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const eventId = params.eventId as string;
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<FeedEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -56,8 +58,8 @@ export default function EventDetailsPage() {
           id: eventSnap.id,
           ...eventData,
         });
-      } catch (error: any) {
-        setMessage(error.message || "Failed to load event.");
+      } catch (error: unknown) {
+        setMessage(getErrorMessage(error, "Failed to load event."));
       } finally {
         setLoading(false);
       }
@@ -86,9 +88,9 @@ export default function EventDetailsPage() {
           ← Back
         </button>
 
-        {message ? (
+        {message || !event ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <p className="text-white/70">{message}</p>
+            <p className="text-white/70">{message || "Event not found."}</p>
           </div>
         ) : (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">

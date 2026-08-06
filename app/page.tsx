@@ -1,5 +1,6 @@
 "use client";
 
+import { getErrorMessage } from "./lib/errors";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "./lib/firebase";
@@ -50,8 +51,8 @@ export default function LoginPage() {
 
       setMessage("Account created. Check your email to verify your account.");
       router.push("/verify-email");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to create account.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to create account."));
     }
   }
 
@@ -91,8 +92,8 @@ export default function LoginPage() {
       }
 
       router.push("/events");
-    } catch (error: any) {
-      setMessage(error.message || "Failed to log in.");
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to log in."));
     }
   }
 

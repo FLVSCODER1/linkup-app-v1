@@ -52,3 +52,7 @@ export type FeedEvent = {
 
 };
 
+export type ImportedCalendarEvent = Pick<
+  FeedEvent,
+  "title" | "date" | "location" | "description"
+>;
