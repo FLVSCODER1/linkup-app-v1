@@ -9,6 +9,7 @@ export interface CurrentUserProfile {
   bio: string;
   grade: string;
   interests: string[];
+  districtId: string;
   schoolId: string;
   district: string | null;
   school: string | null;
