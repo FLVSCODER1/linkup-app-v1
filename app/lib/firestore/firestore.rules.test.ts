@@ -119,6 +119,14 @@ async function seedData() {
         school: null,
         startTime: Timestamp.fromDate(new Date("2030-01-04T12:00:00Z")),
       }),
+      setDoc(doc(db, "events", "alpha-draft"), {
+        createdBy: "alpha-student",
+        status: "draft",
+        visibility: "school",
+        district: "Test District",
+        school: "Alpha High",
+        startTime: Timestamp.fromDate(new Date("2030-01-05T12:00:00Z")),
+      }),
     ]);
   });
 }
@@ -186,6 +194,14 @@ describe("LinkUp Firestore trust boundaries", () => {
     await assertSucceeds(getDoc(doc(db, "events", "district-event")));
     await assertFails(getDoc(doc(db, "events", "beta-school-event")));
     await assertFails(getDoc(doc(db, "events", "other-district-event")));
+  });
+
+  it("allows only the host to read an unpublished draft", async () => {
+    const hostDb = firestoreFor("alpha-student");
+    const peerDb = firestoreFor("beta-student");
+
+    await assertSucceeds(getDoc(doc(hostDb, "events", "alpha-draft")));
+    await assertFails(getDoc(doc(peerDb, "events", "alpha-draft")));
   });
 
   it("authorizes the district feed query used by the app", async () => {

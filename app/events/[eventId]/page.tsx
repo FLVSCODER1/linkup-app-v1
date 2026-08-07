@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
 import { hasVerifiedAccount } from "../../lib/auth/verification";
 import { canUserAccessEvent } from "../../lib/events/access";
+import { formatEventDateRange } from "../../lib/events/date";
 import type { FeedEvent, UserProfile } from "../../lib/events/types";
 
 export default function EventDetailsPage() {
@@ -20,6 +21,8 @@ export default function EventDetailsPage() {
   const [event, setEvent] = useState<FeedEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [duplicating, setDuplicating] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -33,6 +36,8 @@ export default function EventDetailsPage() {
           router.push("/verify-email");
           return;
         }
+
+        setCurrentUserId(user.uid);
 
         const userSnap = await getDoc(doc(db, "users", user.uid));
 
@@ -71,6 +76,33 @@ export default function EventDetailsPage() {
     return () => unsubscribe();
   }, [router, eventId]);
 
+  async function duplicateEvent() {
+    const user = auth.currentUser;
+    if (!user || !event || event.createdBy !== user.uid) return;
+    try {
+      setDuplicating(true);
+      const duplicateId = `${event.id}-copy-${Date.now()}`;
+      const { id: _id, ...eventData } = event;
+      void _id;
+      await setDoc(doc(db, "events", duplicateId), {
+        ...eventData,
+        title: `Copy of ${event.title || "Untitled Event"}`.slice(0, 100),
+        status: "draft",
+        attendeeCount: 0,
+        createdBy: user.uid,
+        source: "user-posted",
+        imported: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        publishedAt: null,
+      });
+      router.push(`/events/${duplicateId}/edit`);
+    } catch (error: unknown) {
+      setMessage(getErrorMessage(error, "Failed to duplicate event."));
+      setDuplicating(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-black text-white">
@@ -93,7 +125,7 @@ export default function EventDetailsPage() {
         ) : (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
             <p className="mb-3 text-xs uppercase tracking-wide text-white/40">
-              {event?.category || "event"}
+              {event?.category || "event"}{event?.status === "draft" ? " · draft" : ""}
             </p>
 
             <h1 className="text-4xl font-bold">
@@ -101,9 +133,12 @@ export default function EventDetailsPage() {
             </h1>
 
             <div className="mt-5 space-y-2 text-sm text-white/70">
-              <p>📅 {event?.date || "Date TBD"}</p>
+              <p>📅 {event ? formatEventDateRange(event.startTime, event.endTime) : "Date TBD"}</p>
               <p>📍 {event?.location || "Location TBD"}</p>
               {event?.school && <p>🏫 {event.school}</p>}
+              <p>Hosted by {event?.hostName || "a LinkUp student"}</p>
+              {event?.capacity ? <p>Capacity: {event.capacity}</p> : null}
+              {event?.rsvpDeadline ? <p>RSVP by {formatEventDateRange(event.rsvpDeadline, null)}</p> : null}
             </div>
 
             <div className="mt-6">
@@ -113,14 +148,19 @@ export default function EventDetailsPage() {
               </p>
             </div>
 
-            <button
-              onClick={() =>
-                event && router.push(`/events/${event.id}/preferences`)
-              }
-              className="mt-8 w-full rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95"
-            >
-              Join / Set Preferences
-            </button>
+            {event?.createdBy === currentUserId ? (
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                <button onClick={() => router.push(`/events/${event.id}/edit`)} className="rounded-xl bg-white px-4 py-3 font-semibold text-black">Edit event</button>
+                <button disabled={duplicating} onClick={duplicateEvent} className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">{duplicating ? "Duplicating..." : "Duplicate"}</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => event && router.push(`/events/${event.id}/preferences`)}
+                className="mt-8 w-full rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95"
+              >
+                Join / Set Preferences
+              </button>
+            )}
           </div>
         )}
       </div>
