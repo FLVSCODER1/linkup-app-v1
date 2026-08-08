@@ -64,6 +64,7 @@ service cloud.firestore {
         && eventData.location is string
         && eventData.location.size() <= 120
         && eventData.status in ['draft', 'published', 'cancelled']
+        && eventData.visibility in ['school', 'district']
         && (
           eventData.get('capacity', null) == null
           || (
@@ -139,7 +140,6 @@ service cloud.firestore {
         && validHostEventData(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status in ['draft', 'published']
-        && request.resource.data.visibility == 'school'
         && request.resource.data.school == userSchool()
         && request.resource.data.district == userDistrict();
 
@@ -155,14 +155,14 @@ service cloud.firestore {
           'endTime',
           'capacity',
           'rsvpDeadline',
+          'visibility',
           'status',
           'publishedAt',
           'updatedAt'
         ])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.school == resource.data.school
-        && request.resource.data.district == resource.data.district
-        && request.resource.data.visibility == resource.data.visibility;
+        && request.resource.data.district == resource.data.district;
 
       allow delete: if isVerified()
         && request.auth.uid == resource.data.createdBy;
