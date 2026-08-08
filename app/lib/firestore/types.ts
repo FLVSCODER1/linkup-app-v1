@@ -52,6 +52,33 @@ export interface SchoolDirectoryDocument {
   updatedAt: FirestoreDate;
 }
 
+export type SchoolRequestStatus = "pending" | "approved" | "rejected";
+
+export interface SchoolRequestDocument {
+  domain: string;
+  schoolName: string;
+  city: string;
+  state: string;
+  districtName: string | null;
+  officialWebsite: string;
+  calendarUrl: string | null;
+  status: SchoolRequestStatus;
+  requestCount: number;
+  requestedAt: FirestoreDate;
+  lastRequestedAt: FirestoreDate;
+  reviewedAt: FirestoreDate;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  approvedDistrictId?: string | null;
+  approvedSchoolId?: string | null;
+  approvedDomainScope?: "school" | "district";
+}
+
+export interface SchoolRequesterDocument {
+  email: string;
+  requestedAt: FirestoreDate;
+}
+
 export type AccountVerificationStatus = "pending" | "approved" | "rejected";
 export type ManualReviewMethod =
   | "official_roster"

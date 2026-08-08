@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const PUBLIC_PATHS = new Set([
   "/",
   "/signup",
+  "/request-school",
   "/beta",
   "/profile/setup",
   "/verify-email",

@@ -21,8 +21,5 @@ export async function hasAdminRole(
   if (access.isAdmin) return true;
   if (role === "account_reviewer") return access.canReviewAccounts;
   if (role === "calendar_reviewer") return access.canReviewCalendars;
-
-  const admin = await getAdminDb().collection("admins").doc(uid).get();
-  const data = admin.data();
-  return data?.active === true && Array.isArray(data.roles) && data.roles.includes(role);
+  return access.canManageSchools;
 }
