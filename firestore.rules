@@ -49,6 +49,12 @@ service cloud.firestore {
         );
     }
 
+    function publishedEventByIdIsVisible(eventId) {
+      return publishedEventIsVisible(
+        get(/databases/$(database)/documents/events/$(eventId)).data
+      );
+    }
+
     function validHostEventData(eventData) {
       return eventData.title is string
         && eventData.title.size() >= 3
@@ -104,6 +110,18 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /users/{userId}/savedEvents/{eventId} {
+      allow read: if isVerified() && isOwner(userId);
+
+      allow create, update: if isVerified()
+        && isOwner(userId)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.eventId == eventId
+        && publishedEventByIdIsVisible(eventId);
+
+      allow delete: if isVerified() && isOwner(userId);
+    }
+
     // Legal surnames are stored separately from public school profiles and are
     // available only through authenticated server endpoints.
     match /privateUserProfiles/{document=**} {
@@ -152,21 +170,11 @@ service cloud.firestore {
 
     match /events/{eventId}/attendees/{userId} {
       allow read: if isVerified()
-        && publishedEventIsVisible(
-          get(/databases/$(database)/documents/events/$(eventId)).data
-        );
+        && publishedEventByIdIsVisible(eventId);
 
-      allow create: if isVerified()
-        && request.auth.uid == userId
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.school == userSchool()
-        && publishedEventIsVisible(
-          get(/databases/$(database)/documents/events/$(eventId)).data
-        );
-
-      allow update: if false;
-
-      allow delete: if isVerified() && request.auth.uid == userId;
+      // Attendance writes use a server transaction so capacity, deadlines,
+      // counts, and duplicate prevention cannot be bypassed by clients.
+      allow create, update, delete: if false;
     }
 
     // Legacy top-level attendee documents are no longer used.
@@ -175,14 +183,12 @@ service cloud.firestore {
     }
 
     match /eventPreferences/{prefId} {
-      allow read: if isVerified();
+      allow read: if isVerified()
+        && resource.data.school == userSchool()
+        && publishedEventByIdIsVisible(resource.data.eventId);
 
-      allow create, update: if isVerified()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.school == userSchool();
-
-      allow delete: if isVerified()
-        && resource.data.userId == request.auth.uid;
+      // Preference writes are committed atomically with attendance.
+      allow create, update, delete: if false;
     }
 
     match /interests/{interestId} {

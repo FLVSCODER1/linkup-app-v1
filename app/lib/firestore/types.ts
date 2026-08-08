@@ -135,6 +135,12 @@ export interface EventAttendeeDocument {
   joinedAt: FirestoreDate;
 }
 
+export interface SavedEventDocument {
+  uid: string;
+  eventId: string;
+  savedAt: FirestoreDate;
+}
+
 export interface InterestDocument {
   fromUserId: string;
   toUserId: string;

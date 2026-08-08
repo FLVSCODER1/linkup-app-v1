@@ -127,6 +127,20 @@ async function seedData() {
         school: "Alpha High",
         startTime: Timestamp.fromDate(new Date("2030-01-05T12:00:00Z")),
       }),
+      setDoc(doc(db, "eventPreferences", "alpha-student_alpha-school-event"), {
+        userId: "alpha-student",
+        eventId: "alpha-school-event",
+        school: "Alpha High",
+        attendanceStatus: "going",
+        connectionGoal: "friends",
+      }),
+      setDoc(doc(db, "eventPreferences", "beta-student_beta-school-event"), {
+        userId: "beta-student",
+        eventId: "beta-school-event",
+        school: "Beta High",
+        attendanceStatus: "going",
+        connectionGoal: "friends",
+      }),
     ]);
   });
 }
@@ -240,6 +254,68 @@ describe("LinkUp Firestore trust boundaries", () => {
       updateDoc(doc(db, "users", "alpha-student"), {
         school: "Beta High",
       })
+    );
+  });
+
+  it("keeps attendance and preference writes behind the server transaction", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "alpha-school-event", "attendees", "alpha-student"),
+        { uid: "alpha-student", school: "Alpha High" }
+      )
+    );
+    await assertFails(
+      setDoc(doc(db, "eventPreferences", "new-preference"), {
+        userId: "alpha-student",
+        eventId: "alpha-school-event",
+        school: "Alpha High",
+        attendanceStatus: "going",
+        connectionGoal: "friends",
+      })
+    );
+  });
+
+  it("limits RSVP preference discovery to the viewer's school", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, "eventPreferences"),
+          where("eventId", "==", "alpha-school-event"),
+          where("school", "==", "Alpha High")
+        )
+      )
+    );
+    await assertFails(
+      getDoc(doc(db, "eventPreferences", "beta-student_beta-school-event"))
+    );
+  });
+
+  it("lets users save events only inside their own profile", async () => {
+    const alphaDb = firestoreFor("alpha-student");
+
+    await assertSucceeds(
+      setDoc(
+        doc(alphaDb, "users", "alpha-student", "savedEvents", "alpha-school-event"),
+        {
+          uid: "alpha-student",
+          eventId: "alpha-school-event",
+          savedAt: Timestamp.now(),
+        }
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(alphaDb, "users", "beta-student", "savedEvents", "beta-school-event"),
+        {
+          uid: "alpha-student",
+          eventId: "beta-school-event",
+          savedAt: Timestamp.now(),
+        }
+      )
     );
   });
 });
