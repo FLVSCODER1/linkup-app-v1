@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const PUBLIC_PATHS = new Set(["/", "/beta", "/profile/setup", "/verify-email"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/signup",
+  "/beta",
+  "/profile/setup",
+  "/verify-email",
+]);
 
 const items = [
   { href: "/events", label: "Events", icon: "◉" },
