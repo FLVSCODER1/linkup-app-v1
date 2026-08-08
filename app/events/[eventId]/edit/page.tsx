@@ -40,6 +40,7 @@ export default function EditEventPage() {
         description: event.description || "",
         capacity: event.capacity ? String(event.capacity) : "",
         rsvpDeadline: toDateTimeLocal(event.rsvpDeadline),
+        visibility: event.visibility === "district" ? "district" : "school",
       });
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, "Failed to load event."));
@@ -62,6 +63,7 @@ export default function EditEventPage() {
         endTime: value.endTime ? Timestamp.fromDate(value.endTime) : null,
         capacity: value.capacity,
         rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
+        visibility: value.visibility,
         status,
         publishedAt: status === "published" ? serverTimestamp() : null,
         updatedAt: serverTimestamp(),
