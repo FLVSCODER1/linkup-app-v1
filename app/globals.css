@@ -75,6 +75,17 @@ body {
   }
 }
 
+@keyframes auth-word-swap {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.18em, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 .auth-float {
   animation: auth-float 8s ease-in-out infinite;
 }
@@ -95,12 +106,17 @@ body {
   animation: auth-glow 7s ease-in-out infinite;
 }
 
+.auth-word-swap {
+  animation: auth-word-swap 420ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .auth-float,
   .auth-float-delayed,
   .auth-drift,
   .auth-orbit,
-  .auth-glow {
+  .auth-glow,
+  .auth-word-swap {
     animation: none;
   }
 }

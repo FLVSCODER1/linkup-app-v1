@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import RotatingHook from "./RotatingHook";
 
 type AuthLandingShellProps = {
   children: ReactNode;
@@ -35,15 +36,7 @@ export default function AuthLandingShell({
             LINKUP
           </p>
 
-          <h1 className="max-w-[12ch] text-5xl font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
-            <span className="block">What if finding</span>
-            <span className="block text-[#ff6b4a]">school</span>
-            <span className="block">
-              <span className="text-[#ff6b4a]">events</span>{" "}
-              <span>didn&apos;t</span>
-            </span>
-            <span className="block">suck?</span>
-          </h1>
+          <RotatingHook />
 
           <p className="mt-7 max-w-lg text-base leading-7 text-[#52607a] sm:text-lg">
             Discover what&apos;s happening at your school, RSVP, and meet
