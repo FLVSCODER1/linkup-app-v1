@@ -21,6 +21,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [unsupportedSchool, setUnsupportedSchool] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function schoolEmailIsSupported(): Promise<boolean> {
@@ -33,15 +34,18 @@ export default function SignupPage() {
     if (!response.ok) {
       const data = (await response.json()) as { error?: string };
       setMessage(data.error || "That school email is not supported yet.");
+      setUnsupportedSchool(response.status === 404);
       return false;
     }
 
+    setUnsupportedSchool(false);
     return true;
   }
 
   async function signUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    setUnsupportedSchool(false);
 
     const validation = validateSignupForm(email, password, confirmPassword);
     if (!validation.valid) {
@@ -99,7 +103,10 @@ export default function SignupPage() {
               autoComplete="email"
               required
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setUnsupportedSchool(false);
+              }}
             />
           </label>
 
@@ -153,12 +160,20 @@ export default function SignupPage() {
         </p>
 
         {message && (
-          <p
+          <div
             aria-live="polite"
             className="mt-5 rounded-xl bg-[#fff1f0] px-4 py-3 text-sm font-medium leading-6 text-[#b42318]"
           >
-            {message}
-          </p>
+            <p>{message}</p>
+            {unsupportedSchool && (
+              <Link
+                href={`/request-school?email=${encodeURIComponent(email.trim())}`}
+                className="mt-3 inline-flex rounded-lg bg-[#ff6b4a] px-4 py-2 font-extrabold text-white shadow-sm transition hover:bg-[#e95c3e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25306b]"
+              >
+                Request my school
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </AuthLandingShell>

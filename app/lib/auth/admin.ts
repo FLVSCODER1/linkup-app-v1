@@ -2,6 +2,7 @@ export interface AdminAccess {
   isAdmin: boolean;
   canReviewAccounts: boolean;
   canReviewCalendars: boolean;
+  canManageSchools: boolean;
 }
 
 interface AdminRecord {
@@ -21,5 +22,6 @@ export function resolveAdminAccess(data: AdminRecord | undefined): AdminAccess {
     isAdmin,
     canReviewAccounts: isAdmin || legacyRoles.has("account_reviewer"),
     canReviewCalendars: isAdmin || legacyRoles.has("calendar_reviewer"),
+    canManageSchools: isAdmin || legacyRoles.has("school_directory_admin"),
   };
 }

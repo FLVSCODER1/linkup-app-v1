@@ -8,6 +8,7 @@ describe("resolveAdminAccess", () => {
       isAdmin: true,
       canReviewAccounts: true,
       canReviewCalendars: true,
+      canManageSchools: true,
     });
   });
 
@@ -16,6 +17,7 @@ describe("resolveAdminAccess", () => {
       isAdmin: false,
       canReviewAccounts: false,
       canReviewCalendars: false,
+      canManageSchools: false,
     });
   });
 
@@ -26,6 +28,18 @@ describe("resolveAdminAccess", () => {
       isAdmin: false,
       canReviewAccounts: true,
       canReviewCalendars: false,
+      canManageSchools: false,
+    });
+  });
+
+  it("supports limited school-directory administrators", () => {
+    expect(
+      resolveAdminAccess({ active: true, roles: ["school_directory_admin"] })
+    ).toEqual({
+      isAdmin: false,
+      canReviewAccounts: false,
+      canReviewCalendars: false,
+      canManageSchools: true,
     });
   });
 });

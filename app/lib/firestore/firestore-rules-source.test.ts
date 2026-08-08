@@ -11,7 +11,12 @@ describe("server-only Firestore records", () => {
     expect(privateProfileRule?.[1]).toContain("allow read, write: if false;");
   });
 
-  it.each(["admins", "calendarImportRequests", "calendarSources"])(
+  it.each([
+    "admins",
+    "calendarImportRequests",
+    "calendarSources",
+    "schoolRequests",
+  ])(
     "keeps %s server-only",
     (collectionName) => {
       const rules = readFileSync("firestore.rules", "utf8");

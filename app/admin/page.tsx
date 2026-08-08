@@ -12,6 +12,7 @@ interface AdminAccess {
   isAdmin: boolean;
   canReviewAccounts: boolean;
   canReviewCalendars: boolean;
+  canManageSchools: boolean;
 }
 
 interface AdminTool {
@@ -44,7 +45,8 @@ export default function AdminDirectoryPage() {
         if (
           !data.isAdmin &&
           !data.canReviewAccounts &&
-          !data.canReviewCalendars
+          !data.canReviewCalendars &&
+          !data.canManageSchools
         ) {
           setMessage("This account does not have admin access.");
           return;
@@ -77,8 +79,13 @@ export default function AdminDirectoryPage() {
               },
             ]
           : []),
-        ...(access.isAdmin
+        ...(access.canManageSchools
           ? [
+              {
+                href: "/admin/school-requests",
+                title: "School requests",
+                description: "Review community nominations before enabling a school.",
+              },
               {
                 href: "/admin/schools",
                 title: "School directory",
