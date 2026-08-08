@@ -1,0 +1,69 @@
+name: Validate LinkUp beta.6
+
+on:
+  push:
+    branches:
+      - agent/v0.7.0-beta.6-event-visibility
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/v0.7.0-beta.6-event-visibility
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Run required validation and record result
+        shell: bash
+        run: |
+          set +e
+          report="agent-validation-beta6.txt"
+          : > "$report"
+          echo "commit=$(git rev-parse HEAD)" >> "$report"
+
+          run_check() {
+            name="$1"
+            shift
+            log="/tmp/${name}.log"
+            "$@" >"$log" 2>&1
+            code=$?
+            echo "${name}=${code}" >> "$report"
+            if [ "$code" -ne 0 ]; then
+              echo "--- ${name} failure tail ---" >> "$report"
+              tail -n 80 "$log" >> "$report"
+              echo "--- end ${name} failure tail ---" >> "$report"
+            fi
+          }
+
+          run_check npm_ci npm ci
+          run_check unit_tests npm test
+          run_check firestore_rules npm run test:rules
+          run_check lint npm run lint
+          run_check typecheck npx tsc --noEmit
+          run_check build npm run build
+          run_check diff_check git diff --check
+
+          if grep -Eq '=(1|2|3|4|5|6|7|8|9|[1-9][0-9]+)$' "$report"; then
+            echo "overall=FAIL" >> "$report"
+          else
+            echo "overall=PASS" >> "$report"
+          fi
+
+      - name: Commit validation report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add agent-validation-beta6.txt
+          git commit -m "v0.7.0-beta.6: record validation results"
+          git push origin HEAD:agent/v0.7.0-beta.6-event-visibility
