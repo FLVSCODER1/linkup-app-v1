@@ -6,83 +6,67 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   browserLocalPersistence,
-  sendPasswordResetEmail,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
   setPersistence,
-  signInWithEmailAndPassword,
 } from "firebase/auth";
-import AuthLandingShell from "./components/auth/AuthLandingShell";
-import { getFirebaseAuthErrorMessage } from "./lib/auth/firebase-errors";
-import { fetchCurrentUserProfile } from "./lib/auth/profile-client";
-import { hasVerifiedAccount } from "./lib/auth/verification";
-import { auth } from "./lib/firebase";
+import AuthLandingShell from "../components/auth/AuthLandingShell";
+import { getFirebaseAuthErrorMessage } from "../lib/auth/firebase-errors";
+import { validateSignupForm } from "../lib/auth/signup-validation";
+import { auth } from "../lib/firebase";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function logIn(event: FormEvent<HTMLFormElement>) {
+  async function schoolEmailIsSupported(): Promise<boolean> {
+    const response = await fetch("/api/auth/school-context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setMessage(data.error || "That school email is not supported yet.");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function signUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage("");
+
+    const validation = validateSignupForm(email, password, confirmPassword);
+    if (!validation.valid) {
+      setMessage(validation.message);
+      return;
+    }
 
     try {
       setBusy(true);
-      setMessage("");
+
+      if (!(await schoolEmailIsSupported())) return;
 
       await setPersistence(auth, browserLocalPersistence);
 
-      const userCredential = await signInWithEmailAndPassword(
+      const userCredential = await createUserWithEmailAndPassword(
         auth,
-        email.trim(),
+        email.trim().toLowerCase(),
         password
       );
-      const user = userCredential.user;
 
-      await user.reload();
-
-      if (!(await hasVerifiedAccount(user, true))) {
-        router.push("/verify-email");
-        return;
-      }
-
-      try {
-        const profile = await fetchCurrentUserProfile(user);
-
-        if (!profile?.profileComplete || !profile.district || !profile.school) {
-          router.push("/profile/setup");
-          return;
-        }
-      } catch {
-        setMessage("You're signed in, but we couldn't load your profile.");
-        return;
-      }
-
-      router.push("/events");
-    } catch (error: unknown) {
-      setMessage(getFirebaseAuthErrorMessage(error, "We couldn't log you in."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function resetPassword() {
-    try {
-      setBusy(true);
-      setMessage("");
-
-      if (!email.trim()) {
-        setMessage("Enter your school email first.");
-        return;
-      }
-
-      await sendPasswordResetEmail(auth, email.trim());
-      setMessage(
-        "If an account exists for that email, Firebase has sent reset instructions."
-      );
+      await sendEmailVerification(userCredential.user);
+      router.push("/verify-email");
     } catch (error: unknown) {
       setMessage(
-        getFirebaseAuthErrorMessage(error, "We couldn't send reset instructions.")
+        getFirebaseAuthErrorMessage(error, "We couldn't create the account.")
       );
     } finally {
       setBusy(false);
@@ -93,18 +77,19 @@ export default function LoginPage() {
     <AuthLandingShell>
       <div className="rounded-[2rem] border border-[#d9deec] bg-white/95 p-6 shadow-[0_28px_80px_rgba(37,48,107,0.14)] backdrop-blur sm:p-8">
         <div className="mb-7">
-          <p className="mb-2 text-sm font-bold uppercase tracking-[0.18em] text-[#5b5fef]">
-            Welcome back
+          <p className="mb-2 text-sm font-bold uppercase tracking-[0.18em] text-[#ff6b4a]">
+            Join your school
           </p>
           <h2 className="text-3xl font-black tracking-[-0.035em] text-[#17203d]">
-            Log in to LinkUp
+            Create your account
           </h2>
           <p className="mt-2 text-sm leading-6 text-[#66718a]">
-            Use the school email connected to your account.
+            Use your school-issued email. We&apos;ll verify it before you can
+            enter LinkUp.
           </p>
         </div>
 
-        <form className="space-y-5" onSubmit={logIn}>
+        <form className="space-y-5" onSubmit={signUp}>
           <label className="block text-sm font-bold text-[#25306b]">
             School email
             <input
@@ -122,12 +107,27 @@ export default function LoginPage() {
             Password
             <input
               className="mt-2 w-full rounded-xl border border-[#cfd5e6] bg-[#f7f8fc] px-4 py-3.5 text-base text-[#17203d] outline-none transition placeholder:text-[#8b94a9] focus:border-[#5b5fef] focus:ring-4 focus:ring-[#5b5fef]/15"
-              placeholder="Enter your password"
+              placeholder="At least 8 characters"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
+              minLength={8}
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+
+          <label className="block text-sm font-bold text-[#25306b]">
+            Confirm password
+            <input
+              className="mt-2 w-full rounded-xl border border-[#cfd5e6] bg-[#f7f8fc] px-4 py-3.5 text-base text-[#17203d] outline-none transition placeholder:text-[#8b94a9] focus:border-[#5b5fef] focus:ring-4 focus:ring-[#5b5fef]/15"
+              placeholder="Enter it again"
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              required
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
             />
           </label>
 
@@ -136,35 +136,26 @@ export default function LoginPage() {
             disabled={busy}
             className="w-full rounded-xl bg-[#5b5fef] px-4 py-3.5 font-extrabold text-white shadow-[0_10px_28px_rgba(91,95,239,0.24)] transition hover:bg-[#4f5de4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25306b] disabled:cursor-wait disabled:opacity-60"
           >
-            {busy ? "Logging in…" : "Log in"}
+            {busy ? "Creating account…" : "Create account"}
           </button>
         </form>
-
-        <button
-          type="button"
-          onClick={resetPassword}
-          disabled={busy}
-          className="mt-5 w-full text-sm font-semibold text-[#52607a] underline-offset-4 transition hover:text-[#25306b] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#5b5fef] disabled:opacity-50"
-        >
-          Forgot password?
-        </button>
 
         <div className="my-6 h-px bg-[#e4e7f0]" />
 
         <p className="text-center text-sm text-[#66718a]">
-          New to LinkUp?{" "}
+          Already have an account?{" "}
           <Link
-            href="/signup"
+            href="/"
             className="font-extrabold text-[#25306b] underline decoration-[#ff6b4a] decoration-2 underline-offset-4 hover:text-[#5b5fef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#5b5fef]"
           >
-            Create account
+            Log in
           </Link>
         </p>
 
         {message && (
           <p
             aria-live="polite"
-            className="mt-5 rounded-xl bg-[#e9ecff] px-4 py-3 text-sm font-medium leading-6 text-[#25306b]"
+            className="mt-5 rounded-xl bg-[#fff1f0] px-4 py-3 text-sm font-medium leading-6 text-[#b42318]"
           >
             {message}
           </p>
