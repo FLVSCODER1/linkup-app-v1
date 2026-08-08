@@ -1,0 +1,9 @@
+commit=84d7fc1d20198eb30b5ea21cd9c92c46b1a4f2c3
+npm_ci=0
+unit_tests=0
+firestore_rules=0
+lint=0
+typecheck=0
+build=0
+diff_check=0
+overall=PASS
