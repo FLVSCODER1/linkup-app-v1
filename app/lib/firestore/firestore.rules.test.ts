@@ -34,6 +34,23 @@ function firestoreFor(
     .firestore();
 }
 
+function hostEventData(overrides: Record<string, unknown> = {}) {
+  return {
+    title: "Robotics meetup",
+    description: "Build something fun.",
+    location: "Room 201",
+    category: "club",
+    createdBy: "alpha-student",
+    status: "published",
+    visibility: "school",
+    district: "Test District",
+    school: "Alpha High",
+    capacity: 24,
+    startTime: Timestamp.fromDate(new Date("2030-01-10T16:00:00Z")),
+    ...overrides,
+  };
+}
+
 async function seedData() {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -230,6 +247,55 @@ describe("LinkUp Firestore trust boundaries", () => {
     );
 
     await assertSucceeds(getDocs(districtFeed));
+  });
+
+  it("allows verified hosts to create school or district events", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertSucceeds(
+      setDoc(doc(db, "events", "host-school-event"), hostEventData())
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "events", "host-district-event"),
+        hostEventData({ visibility: "district" })
+      )
+    );
+  });
+
+  it("rejects unsupported or forged event visibility identity", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-public-event"),
+        hostEventData({ visibility: "public" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-wrong-school-event"),
+        hostEventData({ visibility: "district", school: "Beta High" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-wrong-district-event"),
+        hostEventData({ visibility: "district", district: "Other District" })
+      )
+    );
+  });
+
+  it("lets hosts switch visibility without changing school identity", async () => {
+    const db = firestoreFor("alpha-student");
+    const eventRef = doc(db, "events", "host-visibility-event");
+
+    await assertSucceeds(setDoc(eventRef, hostEventData()));
+    await assertSucceeds(updateDoc(eventRef, { visibility: "district" }));
+    await assertSucceeds(updateDoc(eventRef, { visibility: "school" }));
+    await assertFails(updateDoc(eventRef, { visibility: "public" }));
+    await assertFails(updateDoc(eventRef, { school: "Beta High" }));
+    await assertFails(updateDoc(eventRef, { district: "Other District" }));
   });
 
   it("keeps identity assignment server-only and school fields immutable", async () => {
