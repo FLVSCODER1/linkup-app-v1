@@ -94,7 +94,8 @@ export default function PeoplePage() {
         const prefsSnap = await getDocs(
           query(
             collection(db, "eventPreferences"),
-            where("eventId", "==", eventId)
+            where("eventId", "==", eventId),
+            where("school", "==", currentUser.school)
           )
         );
 
@@ -146,6 +147,7 @@ export default function PeoplePage() {
               displayName: userData.displayName,
               grade: userData.grade,
               school: userData.school,
+              bio: userData.bio,
               profileComplete: userData.profileComplete,
               attendanceStatus: pref.attendanceStatus,
               connectionGoal: pref.connectionGoal,
@@ -236,12 +238,26 @@ export default function PeoplePage() {
                   RSVP: {user.attendanceStatus} • Connect: {user.connectionGoal}
                 </p>
 
-                <button
-                  onClick={() => sendInterest(user.id)}
-                  className="mt-4 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black"
-                >
-                  Interested
-                </button>
+                <p className="mt-3 text-sm text-white/70">
+                  {user.bio || "No bio yet."}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() =>
+                      router.push(`/people/${eventId}/profile/${user.id}`)
+                    }
+                    className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    View profile
+                  </button>
+                  <button
+                    onClick={() => sendInterest(user.id)}
+                    className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black"
+                  >
+                    Interested
+                  </button>
+                </div>
               </div>
             ))}
           </div>

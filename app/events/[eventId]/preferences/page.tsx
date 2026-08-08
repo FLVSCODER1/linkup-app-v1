@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  deleteDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 import BackButton from "../../../components/ui/BackButton";
 import NavMenu from "../../../components/layout/NavMenu";
@@ -127,36 +121,27 @@ export default function EventPreferencesPage() {
     setMessage("");
 
     try {
-      await setDoc(
-        doc(db, "eventPreferences", `${currentUid}_${eventId}`),
-        {
-          userId: currentUid,
-          eventId,
-          school: currentUserData.school ?? null,
-          attendanceStatus,
-          connectionGoal,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const user = auth.currentUser;
+      if (!user) throw new Error("You must be logged in.");
 
-      const attendeeRef = doc(db, "events", eventId, "attendees", currentUid);
+      const token = await user.getIdToken(true);
+      const response = await fetch(`/api/events/${eventId}/attendance`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ attendanceStatus, connectionGoal }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to save RSVP.");
+      }
 
       if (attendanceStatus === "not-going") {
-        await deleteDoc(attendeeRef);
         router.push(`/events/${eventId}`);
         return;
       }
-
-      await setDoc(
-        attendeeRef,
-        {
-          uid: currentUid,
-          school: currentUserData.school ?? null,
-          joinedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
 
       router.push(
         connectionGoal === "browsing"
