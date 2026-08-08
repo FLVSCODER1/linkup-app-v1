@@ -98,9 +98,12 @@ export interface EventDocument {
   sourceId?: string;
   imported: boolean;
   attendeeCount: number;
+  capacity?: number | null;
+  rsvpDeadline?: FirestoreDate;
   startTime: FirestoreDate;
   endTime: FirestoreDate;
   createdBy: string;
+  hostName?: string;
   createdAt: FirestoreDate;
   updatedAt: FirestoreDate;
   publishedAt: FirestoreDate;

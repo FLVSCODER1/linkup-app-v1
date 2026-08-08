@@ -2,108 +2,78 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-} from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
+
+import EventForm from "../../components/events/EventForm";
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
-import { getErrorMessage } from "../../lib/errors";
 import { hasVerifiedAccount } from "../../lib/auth/verification";
+import { getErrorMessage } from "../../lib/errors";
+import { auth, db } from "../../lib/firebase";
+import { validateEventInput, type EventFormInput } from "../../lib/events/management";
 import type { UserProfile } from "../../lib/events/types";
 
+const emptyEvent: EventFormInput = {
+  title: "",
+  startTime: "",
+  endTime: "",
+  location: "",
+  category: "study",
+  description: "",
+  capacity: "",
+  rsvpDeadline: "",
+};
+
 function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 export default function NewEventPage() {
   const router = useRouter();
-
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [location, setLocation] = useState("");
-  const [category, setCategory] = useState("study");
-  const [description, setDescription] = useState("");
+  const [form, setForm] = useState(emptyEvent);
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.replace("/");
-        return;
-      }
+  useEffect(() => onAuthStateChanged(auth, async (user) => {
+    if (!user) return router.replace("/");
+    if (!(await hasVerifiedAccount(user, true))) return router.replace("/verify-email");
+    const snapshot = await getDoc(doc(db, "users", user.uid));
+    if (!snapshot.exists()) return router.replace("/profile/setup");
+    const nextProfile = snapshot.data() as UserProfile;
+    if (!nextProfile.district || !nextProfile.school) return router.replace("/profile/setup");
+    setProfile(nextProfile);
+  }), [router]);
 
-      if (!(await hasVerifiedAccount(user, true))) {
-        router.replace("/verify-email");
-        return;
-      }
+  async function save(status: "draft" | "published") {
+    const user = auth.currentUser;
+    if (!user || !profile?.district || !profile.school) return setMessage("Your verified school profile is required.");
+    const validation = validateEventInput(form);
+    if (!validation.valid) return setMessage(validation.error);
 
-      const snap = await getDoc(doc(db, "users", user.uid));
-
-      if (!snap.exists()) {
-        router.push("/profile/setup");
-        return;
-      }
-
-      const profileData = snap.data() as UserProfile;
-      if (!profileData.district) {
-        router.replace("/profile/setup");
-        return;
-      }
-
-      setProfile(profileData);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  async function createEvent() {
     try {
-      const user = auth.currentUser;
-
-      if (!user) {
-        setMessage("You must be logged in.");
-        return;
-      }
-
-      if (!title.trim() || !date.trim() || !profile?.district) {
-        setMessage("Title and date are required.");
-        return;
-      }
-
-      const startTime = new Date(date);
-      if (Number.isNaN(startTime.getTime())) {
-        setMessage("Choose a valid date and time.");
-        return;
-      }
-
-      const eventId = `${slugify(title)}-${Date.now()}`;
-
+      setSubmitting(true);
+      setMessage("");
+      const value = validation.value;
+      const eventId = `${slugify(value.title)}-${Date.now()}`;
       await setDoc(doc(db, "events", eventId), {
-        title: title.trim(),
-        date: date.trim(),
-        location: location.trim() || "TBD",
-        category,
-        description: description.trim(),
+        title: value.title,
+        description: value.description,
+        location: value.location,
+        category: value.category,
         district: profile.district,
-        school: profile.school ?? null,
-        visibility: profile.school ? "school" : "district",
-        status: "published",
+        school: profile.school,
+        visibility: "school",
+        status,
         createdBy: user.uid,
+        hostName: profile.displayName || "Student host",
         source: "user-posted",
         imported: false,
-        startTime: Timestamp.fromDate(startTime),
-        endTime: null,
+        startTime: Timestamp.fromDate(value.startTime),
+        endTime: value.endTime ? Timestamp.fromDate(value.endTime) : null,
+        capacity: value.capacity,
+        rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
         attendeeCount: 0,
         moderationStatus: "pending",
         suppressionReason: null,
@@ -113,80 +83,24 @@ export default function NewEventPage() {
         reviewedBy: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        publishedAt: serverTimestamp(),
+        publishedAt: status === "published" ? serverTimestamp() : null,
       });
-
-      router.push("/events");
+      router.push(`/events/${eventId}`);
     } catch (error: unknown) {
-      setMessage(getErrorMessage(error, "Failed to create event."));
+      setMessage(getErrorMessage(error, "Failed to save event."));
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 text-white">
+    <main className="min-h-screen bg-black p-6 pb-28 text-white">
       <NavMenu />
-
       <div className="mx-auto max-w-2xl">
         <BackButton href="/events" label="Events" />
-        <h1 className="mb-2 text-3xl font-bold">Post an Event</h1>
-        <p className="mb-6 text-sm text-white/70">
-          Create a study group, party, game meetup, or school event.
-        </p>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <input
-            className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-            placeholder="Event title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-
-          <input
-            className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-            aria-label="Event date and time"
-            type="datetime-local"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-
-          <input
-            className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-            placeholder="Location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
-
-          <select
-            className="mb-3 w-full rounded-lg bg-white/10 p-3 outline-none"
-            title="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="study">Study group</option>
-            <option value="party">Party</option>
-            <option value="athletics">Athletics</option>
-            <option value="club">Club</option>
-            <option value="dance">Dance</option>
-            <option value="other">Other</option>
-          </select>
-
-          <textarea
-            className="mb-4 min-h-28 w-full rounded-lg bg-white/10 p-3 outline-none"
-            placeholder="Description"
-            value={description}
-            maxLength={500}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-
-          <button
-            onClick={createEvent}
-            className="w-full rounded-lg bg-white p-3 font-semibold text-black"
-          >
-            Post event
-          </button>
-
-          {message && <p className="mt-4 text-sm text-white/70">{message}</p>}
-        </div>
+        <h1 className="mb-2 text-3xl font-bold">Create an event</h1>
+        <p className="mb-6 text-sm text-white/70">Organize something real for students at your school.</p>
+        <EventForm value={form} onChange={setForm} onSubmit={save} submitting={submitting} message={message} />
       </div>
     </main>
   );

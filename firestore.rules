@@ -49,6 +49,25 @@ service cloud.firestore {
         );
     }
 
+    function validHostEventData(eventData) {
+      return eventData.title is string
+        && eventData.title.size() >= 3
+        && eventData.title.size() <= 100
+        && eventData.description is string
+        && eventData.description.size() <= 1000
+        && eventData.location is string
+        && eventData.location.size() <= 120
+        && eventData.status in ['draft', 'published', 'cancelled']
+        && (
+          eventData.get('capacity', null) == null
+          || (
+            eventData.capacity is int
+            && eventData.capacity >= 2
+            && eventData.capacity <= 10000
+          )
+        );
+    }
+
     match /users/{userId} {
       allow read: if isVerified()
         && (
@@ -92,17 +111,36 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
-      allow read: if isVerified() && publishedEventIsVisible(resource.data);
+      allow read: if isVerified()
+        && (
+          publishedEventIsVisible(resource.data)
+          || request.auth.uid == resource.data.createdBy
+        );
 
       allow create: if isVerified()
+        && validHostEventData(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
-        && request.resource.data.status == 'published'
+        && request.resource.data.status in ['draft', 'published']
         && request.resource.data.visibility == 'school'
         && request.resource.data.school == userSchool()
         && request.resource.data.district == userDistrict();
 
       allow update: if isVerified()
         && request.auth.uid == resource.data.createdBy
+        && validHostEventData(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title',
+          'description',
+          'location',
+          'category',
+          'startTime',
+          'endTime',
+          'capacity',
+          'rsvpDeadline',
+          'status',
+          'publishedAt',
+          'updatedAt'
+        ])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.school == resource.data.school
         && request.resource.data.district == resource.data.district
