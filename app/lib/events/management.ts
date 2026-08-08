@@ -10,6 +10,9 @@ export const EVENT_CATEGORIES = [
   "other",
 ] as const;
 
+export const EVENT_VISIBILITIES = ["school", "district"] as const;
+export type HostEventVisibility = (typeof EVENT_VISIBILITIES)[number];
+
 export interface EventFormInput {
   title: string;
   startTime: string;
@@ -19,6 +22,7 @@ export interface EventFormInput {
   description: string;
   capacity: string;
   rsvpDeadline: string;
+  visibility: string;
 }
 
 export interface ValidatedEventInput {
@@ -30,11 +34,16 @@ export interface ValidatedEventInput {
   description: string;
   capacity: number | null;
   rsvpDeadline: Date | null;
+  visibility: HostEventVisibility;
 }
 
 export type EventInputValidation =
   | { valid: true; value: ValidatedEventInput }
   | { valid: false; error: string };
+
+function isHostEventVisibility(value: string): value is HostEventVisibility {
+  return EVENT_VISIBILITIES.some((visibility) => visibility === value);
+}
 
 export function validateEventInput(input: EventFormInput): EventInputValidation {
   const title = input.title.trim();
@@ -64,6 +73,12 @@ export function validateEventInput(input: EventFormInput): EventInputValidation 
   if (description.length > 1000) {
     return { valid: false, error: "Keep the description under 1,000 characters." };
   }
+  if (!isHostEventVisibility(input.visibility)) {
+    return {
+      valid: false,
+      error: "Choose whether this event is visible to your school or district.",
+    };
+  }
 
   let capacity: number | null = null;
   if (input.capacity.trim()) {
@@ -90,6 +105,7 @@ export function validateEventInput(input: EventFormInput): EventInputValidation 
       description,
       capacity,
       rsvpDeadline,
+      visibility: input.visibility,
     },
   };
 }
