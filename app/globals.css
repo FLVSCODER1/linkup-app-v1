@@ -26,3 +26,81 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+@keyframes auth-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(12deg);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0) rotate(17deg);
+  }
+}
+
+@keyframes auth-float-delayed {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(10px, -9px, 0);
+  }
+}
+
+@keyframes auth-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(16px, 8px, 0) scale(1.08);
+  }
+}
+
+@keyframes auth-orbit {
+  to {
+    transform: rotate(348deg);
+  }
+}
+
+@keyframes auth-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.04);
+  }
+}
+
+.auth-float {
+  animation: auth-float 8s ease-in-out infinite;
+}
+
+.auth-float-delayed {
+  animation: auth-float-delayed 6.5s ease-in-out 1.25s infinite;
+}
+
+.auth-drift {
+  animation: auth-drift 11s ease-in-out infinite;
+}
+
+.auth-orbit {
+  animation: auth-orbit 24s linear infinite;
+}
+
+.auth-glow {
+  animation: auth-glow 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-float,
+  .auth-float-delayed,
+  .auth-drift,
+  .auth-orbit,
+  .auth-glow {
+    animation: none;
+  }
+}
