@@ -13,6 +13,12 @@ import { getErrorMessage } from "../../../lib/errors";
 import { auth, db } from "../../../lib/firebase";
 import { toDateTimeLocal, validateEventInput, type EventFormInput } from "../../../lib/events/management";
 import type { FeedEvent } from "../../../lib/events/types";
+import {
+  compressEventCover,
+  createEventCoverPath,
+  deleteEventCover,
+  uploadEventCover,
+} from "../../../lib/events/cover-images";
 
 export default function EditEventPage() {
   const router = useRouter();
@@ -24,6 +30,9 @@ export default function EditEventPage() {
   }>({ status: "draft", publishedAt: null });
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [coverImagePath, setCoverImagePath] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverRemoved, setCoverRemoved] = useState(false);
 
   useEffect(() => onAuthStateChanged(auth, async (user) => {
     if (!user) return router.replace("/");
@@ -39,6 +48,7 @@ export default function EditEventPage() {
         status: event.status,
         publishedAt: event.publishedAt,
       });
+      setCoverImagePath(event.coverImagePath || null);
       setForm({
         title: event.title || "",
         startTime: toDateTimeLocal(event.startTime),
@@ -62,25 +72,51 @@ export default function EditEventPage() {
     try {
       setSubmitting(true);
       const value = validation.value;
-      await updateDoc(doc(db, "events", eventId), {
-        title: value.title,
-        description: value.description,
-        location: value.location,
-        category: value.category,
-        startTime: Timestamp.fromDate(value.startTime),
-        endTime: value.endTime ? Timestamp.fromDate(value.endTime) : null,
-        capacity: value.capacity,
-        rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
-        visibility: value.visibility,
-        status,
-        publishedAt:
-          status === "published"
-            ? publication.status === "published" && publication.publishedAt
-              ? publication.publishedAt
-              : serverTimestamp()
+      const user = auth.currentUser;
+      if (!user) throw new Error("Sign in again to update this event.");
+      let nextCoverPath = coverRemoved ? null : coverImagePath;
+      let uploadedCoverPath: string | null = null;
+
+      if (coverFile) {
+        const blob = await compressEventCover(coverFile);
+        uploadedCoverPath = createEventCoverPath(eventId);
+        await uploadEventCover(uploadedCoverPath, eventId, user.uid, blob);
+        nextCoverPath = uploadedCoverPath;
+      }
+
+      try {
+        await updateDoc(doc(db, "events", eventId), {
+          title: value.title,
+          description: value.description,
+          location: value.location,
+          category: value.category,
+          startTime: Timestamp.fromDate(value.startTime),
+          endTime: value.endTime ? Timestamp.fromDate(value.endTime) : null,
+          capacity: value.capacity,
+          rsvpDeadline: value.rsvpDeadline
+            ? Timestamp.fromDate(value.rsvpDeadline)
             : null,
-        updatedAt: serverTimestamp(),
-      });
+          visibility: value.visibility,
+          status,
+          coverImagePath: nextCoverPath,
+          publishedAt:
+            status === "published"
+              ? publication.status === "published" && publication.publishedAt
+                ? publication.publishedAt
+                : serverTimestamp()
+              : null,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        if (uploadedCoverPath) {
+          await deleteEventCover(uploadedCoverPath).catch(() => undefined);
+        }
+        throw error;
+      }
+
+      if (coverImagePath && coverImagePath !== nextCoverPath) {
+        await deleteEventCover(coverImagePath).catch(() => undefined);
+      }
       router.push(`/events/${eventId}`);
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, "Failed to update event."));
@@ -93,6 +129,12 @@ export default function EditEventPage() {
     if (!window.confirm("Delete this event permanently?")) return;
     try {
       setSubmitting(true);
+      if (coverImagePath) {
+        await deleteEventCover(coverImagePath).catch((error: unknown) => {
+          const code = (error as { code?: string }).code;
+          if (code !== "storage/object-not-found") throw error;
+        });
+      }
       await deleteDoc(doc(db, "events", eventId));
       router.replace("/events");
     } catch (error: unknown) {
@@ -107,7 +149,25 @@ export default function EditEventPage() {
       <div className="mx-auto max-w-2xl">
         <BackButton href={`/events/${eventId}`} label="Event" />
         <h1 className="mb-6 text-3xl font-bold">Edit event</h1>
-        {form ? <EventForm value={form} onChange={setForm} onSubmit={save} submitting={submitting} message={message} submitLabel="Update event" /> : <p className="text-white/70">{message || "Loading event..."}</p>}
+        {form ? <EventForm
+          value={form}
+          onChange={setForm}
+          onSubmit={save}
+          submitting={submitting}
+          message={message}
+          submitLabel="Update event"
+          coverImagePath={coverImagePath}
+          coverFile={coverFile}
+          coverRemoved={coverRemoved}
+          onCoverFileChange={(file) => {
+            setCoverFile(file);
+            setCoverRemoved(false);
+          }}
+          onCoverRemove={() => {
+            setCoverFile(null);
+            setCoverRemoved(true);
+          }}
+        /> : <p className="text-white/70">{message || "Loading event..."}</p>}
         {form && <button type="button" disabled={submitting} onClick={remove} className="mt-4 w-full rounded-lg border border-red-500/30 px-4 py-3 font-semibold text-red-300 disabled:opacity-50">Delete event</button>}
       </div>
     </main>

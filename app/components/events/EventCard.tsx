@@ -1,6 +1,7 @@
 "use client";
 
 import type { FeedEvent } from "../../lib/events/types";
+import EventCoverImage from "./EventCoverImage";
 
 interface EventCardProps {
   event: FeedEvent;
@@ -22,6 +23,12 @@ export default function EventCard({
       onClick={onClick}
       className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
     >
+      {event.coverImagePath ? (
+        <EventCoverImage
+          path={event.coverImagePath}
+          className="mb-5 aspect-[16/9] w-full rounded-xl"
+        />
+      ) : null}
       <p className="mb-2 text-xs uppercase tracking-wide text-white/40">
         {event.category || "event"}
       </p>
@@ -62,4 +69,3 @@ export default function EventCard({
     </article>
   );
 }
-

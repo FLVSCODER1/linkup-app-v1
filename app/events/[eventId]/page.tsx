@@ -21,6 +21,7 @@ import { canUserAccessEvent } from "../../lib/events/access";
 import { ALLOW_HOST_RSVP_PREVIEW } from "../../lib/events/attendance";
 import { formatEventDateRange } from "../../lib/events/date";
 import type { FeedEvent, UserProfile } from "../../lib/events/types";
+import EventCoverImage from "../../components/events/EventCoverImage";
 
 export default function EventDetailsPage() {
   const router = useRouter();
@@ -126,6 +127,7 @@ export default function EventDetailsPage() {
         hostName: event.hostName || "Student host",
         source: "user-posted",
         imported: false,
+        coverImagePath: null,
         startTime: event.startTime,
         endTime: event.endTime || null,
         capacity: event.capacity || null,
@@ -225,6 +227,10 @@ export default function EventDetailsPage() {
           </div>
         ) : (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
+            <EventCoverImage
+              path={event?.coverImagePath}
+              className="mb-6 aspect-[16/9] w-full rounded-2xl"
+            />
             <p className="mb-3 text-xs uppercase tracking-wide text-white/40">
               {event?.category || "event"}{event?.status === "draft" ? " · draft" : ""}
             </p>
