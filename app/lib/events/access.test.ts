@@ -52,5 +52,34 @@ describe("event visibility", () => {
       false
     );
   });
-});
 
+  it("allows a host to open their own unpublished draft", () => {
+    expect(
+      canUserAccessEvent(
+        event({
+          createdBy: "host-user",
+          status: "draft",
+          visibility: "school",
+          school: "Former High School",
+        }),
+        profile,
+        "host-user"
+      )
+    ).toBe(true);
+  });
+
+  it("does not grant peers access to another host's draft", () => {
+    expect(
+      canUserAccessEvent(
+        event({
+          createdBy: "host-user",
+          status: "draft",
+          visibility: "school",
+          school: "Former High School",
+        }),
+        profile,
+        "peer-user"
+      )
+    ).toBe(false);
+  });
+});

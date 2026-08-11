@@ -118,6 +118,14 @@ export default function NavMenu() {
           )}
 
           <Link
+            href="/events/drafts"
+            onClick={() => setOpen(false)}
+            className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
+          >
+            Your drafts
+          </Link>
+
+          <Link
             href="/beta"
             onClick={() => setOpen(false)}
             className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"

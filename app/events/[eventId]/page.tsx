@@ -73,7 +73,7 @@ export default function EventDetailsPage() {
           ...eventSnap.data(),
         };
 
-        if (!canUserAccessEvent(eventData, currentUser)) {
+        if (!canUserAccessEvent(eventData, currentUser, user.uid)) {
           setMessage("You do not have access to this event.");
           return;
         }
@@ -102,10 +102,20 @@ export default function EventDetailsPage() {
   useEffect(() => {
     if (!currentUserId || event?.id !== eventId) return;
 
-    return onSnapshot(doc(db, "events", eventId), (snapshot) => {
-      if (!snapshot.exists()) return;
-      setEvent({ id: snapshot.id, ...snapshot.data() });
-    });
+    return onSnapshot(
+      doc(db, "events", eventId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setEvent(null);
+          setMessage("Event not found.");
+          return;
+        }
+        setEvent({ id: snapshot.id, ...snapshot.data() });
+      },
+      (error) => {
+        setMessage(getErrorMessage(error, "We lost access to this event."));
+      }
+    );
   }, [currentUserId, eventId, event?.id]);
 
   async function duplicateEvent() {

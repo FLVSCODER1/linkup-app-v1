@@ -18,7 +18,9 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+
+import { EVENT_CATEGORIES } from "../events/categories";
 
 const projectId = "demo-linkup";
 let testEnvironment: RulesTestEnvironment;
@@ -261,6 +263,34 @@ describe("LinkUp Firestore trust boundaries", () => {
     await assertFails(getDoc(doc(peerDb, "events", "alpha-draft")));
   });
 
+  it("authorizes the host-only event query used by the drafts page", async () => {
+    const hostDb = firestoreFor("alpha-student");
+    const ownedEvents = query(
+      collection(hostDb, "events"),
+      where("createdBy", "==", "alpha-student")
+    );
+
+    const snapshot = await assertSucceeds(getDocs(ownedEvents));
+    expect(snapshot.docs.map((item) => item.id)).toContain("alpha-draft");
+  });
+
+  it("keeps drafts out of the published school feed", async () => {
+    const db = firestoreFor("alpha-student");
+    const schoolFeed = query(
+      collection(db, "events"),
+      where("district", "==", "Test District"),
+      where("school", "==", "Alpha High"),
+      where("visibility", "==", "school"),
+      where("status", "==", "published"),
+      where("startTime", ">=", Timestamp.fromDate(new Date("2029-01-01"))),
+      orderBy("startTime", "asc")
+    );
+
+    const snapshot = await assertSucceeds(getDocs(schoolFeed));
+    expect(snapshot.docs.map((item) => item.id)).not.toContain("alpha-draft");
+    expect(snapshot.docs.map((item) => item.id)).toContain("alpha-school-event");
+  });
+
   it("authorizes the district feed query used by the app", async () => {
     const db = firestoreFor("alpha-student");
     const districtFeed = query(
@@ -287,6 +317,19 @@ describe("LinkUp Firestore trust boundaries", () => {
         hostEventData({ visibility: "district" })
       )
     );
+  });
+
+  it("allows every event category exposed by the creation form", async () => {
+    const db = firestoreFor("alpha-student");
+
+    for (const category of EVENT_CATEGORIES) {
+      await assertSucceeds(
+        setDoc(
+          doc(db, "events", `host-${category}-event`),
+          hostEventData({ category })
+        )
+      );
+    }
   });
 
   it("rejects unsupported or forged event visibility identity", async () => {

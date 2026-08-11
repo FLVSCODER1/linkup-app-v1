@@ -99,7 +99,11 @@ export default function EditEventPage() {
       } else if (coverRemoved && coverImageUrl) {
         await deleteEventCover(user, eventId);
       }
-      router.push(`/events/${eventId}`);
+      if (status === "draft") {
+        router.replace(`/events/drafts?saved=${encodeURIComponent(eventId)}`);
+      } else {
+        router.push(`/events/${eventId}`);
+      }
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, "Failed to update event."));
     } finally {
@@ -135,6 +139,11 @@ export default function EditEventPage() {
       <div className="mx-auto max-w-2xl">
         <BackButton href={`/events/${eventId}`} label="Event" />
         <h1 className="mb-6 text-3xl font-bold">Edit event</h1>
+        {form && publication.status === "published" ? (
+          <p className="mb-4 rounded-xl border border-blue-400/20 bg-blue-400/10 px-4 py-3 text-sm text-blue-100">
+            This event is live. Updating it keeps it published in the feed.
+          </p>
+        ) : null}
         {form ? <EventForm
           value={form}
           onChange={setForm}
@@ -142,6 +151,7 @@ export default function EditEventPage() {
           submitting={submitting}
           message={message}
           submitLabel="Update event"
+          showDraftAction={publication.status !== "published"}
           coverImageUrl={coverImageUrl}
           coverFile={coverFile}
           coverRemoved={coverRemoved}

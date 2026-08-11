@@ -130,7 +130,16 @@ export default function EventsPage() {
             LinkUp
           </p>
 
-          <h1 className="text-3xl font-bold">Events</h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-3xl font-bold">Events</h1>
+            <button
+              type="button"
+              onClick={() => router.push("/events/drafts")}
+              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-95"
+            >
+              Your drafts
+            </button>
+          </div>
 
           <p className="mt-2 text-sm text-white/70">{subtitle}</p>
         </header>
