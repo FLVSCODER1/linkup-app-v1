@@ -47,6 +47,21 @@ function hostEventData(overrides: Record<string, unknown> = {}) {
     school: "Alpha High",
     capacity: 24,
     startTime: Timestamp.fromDate(new Date("2030-01-10T16:00:00Z")),
+    endTime: null,
+    rsvpDeadline: null,
+    hostName: "Alpha Student",
+    source: "user-posted",
+    imported: false,
+    attendeeCount: 0,
+    moderationStatus: "pending",
+    suppressionReason: null,
+    relevanceScore: 0,
+    aiCategory: null,
+    reviewedAt: null,
+    reviewedBy: null,
+    createdAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
+    updatedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
+    publishedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
     ...overrides,
   };
 }
@@ -282,6 +297,56 @@ describe("LinkUp Firestore trust boundaries", () => {
       setDoc(
         doc(db, "events", "host-wrong-district-event"),
         hostEventData({ visibility: "district", district: "Other District" })
+      )
+    );
+  });
+
+  it("rejects forged host moderation state and unexpected fields", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-approval"),
+        hostEventData({ moderationStatus: "approved" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-reviewer"),
+        hostEventData({ reviewedBy: "alpha-student" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-unexpected-field"),
+        hostEventData({ adminApproved: true })
+      )
+    );
+  });
+
+  it("rejects malformed host event dates and categories", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-category"),
+        hostEventData({ category: "announcement" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-end"),
+        hostEventData({
+          endTime: Timestamp.fromDate(new Date("2030-01-10T15:00:00Z")),
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-deadline"),
+        hostEventData({
+          rsvpDeadline: Timestamp.fromDate(new Date("2030-01-10T17:00:00Z")),
+        })
       )
     );
   });

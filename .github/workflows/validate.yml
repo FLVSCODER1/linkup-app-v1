@@ -1,4 +1,4 @@
-name: Validate LinkUp beta.6
+name: Validate LinkUp
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out PR
+      - name: Check out pull request
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -36,7 +36,7 @@ jobs:
         run: npm run lint
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Production build
         run: npm run build

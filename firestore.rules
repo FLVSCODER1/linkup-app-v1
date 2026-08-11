@@ -63,6 +63,32 @@ service cloud.firestore {
         && eventData.description.size() <= 1000
         && eventData.location is string
         && eventData.location.size() <= 120
+        && eventData.category in [
+          'sports',
+          'clubs',
+          'academic',
+          'study',
+          'music',
+          'parties',
+          'volunteer',
+          'school',
+          'other'
+        ]
+        && eventData.startTime is timestamp
+        && (
+          eventData.get('endTime', null) == null
+          || (
+            eventData.endTime is timestamp
+            && eventData.endTime > eventData.startTime
+          )
+        )
+        && (
+          eventData.get('rsvpDeadline', null) == null
+          || (
+            eventData.rsvpDeadline is timestamp
+            && eventData.rsvpDeadline <= eventData.startTime
+          )
+        )
         && eventData.status in ['draft', 'published', 'cancelled']
         && eventData.visibility in ['school', 'district']
         && (
@@ -71,6 +97,89 @@ service cloud.firestore {
             eventData.capacity is int
             && eventData.capacity >= 2
             && eventData.capacity <= 10000
+          )
+        );
+    }
+
+    function validHostEventCreationData(eventData) {
+      return eventData.keys().hasAll([
+          'title',
+          'description',
+          'location',
+          'category',
+          'district',
+          'school',
+          'visibility',
+          'status',
+          'createdBy',
+          'hostName',
+          'source',
+          'imported',
+          'startTime',
+          'endTime',
+          'capacity',
+          'rsvpDeadline',
+          'attendeeCount',
+          'moderationStatus',
+          'suppressionReason',
+          'relevanceScore',
+          'aiCategory',
+          'reviewedAt',
+          'reviewedBy',
+          'createdAt',
+          'updatedAt',
+          'publishedAt'
+        ])
+        && eventData.keys().hasOnly([
+          'title',
+          'description',
+          'location',
+          'category',
+          'district',
+          'school',
+          'visibility',
+          'status',
+          'createdBy',
+          'hostName',
+          'source',
+          'imported',
+          'startTime',
+          'endTime',
+          'capacity',
+          'rsvpDeadline',
+          'attendeeCount',
+          'moderationStatus',
+          'suppressionReason',
+          'relevanceScore',
+          'aiCategory',
+          'reviewedAt',
+          'reviewedBy',
+          'createdAt',
+          'updatedAt',
+          'publishedAt'
+        ])
+        && eventData.createdBy is string
+        && eventData.hostName is string
+        && eventData.hostName.size() >= 2
+        && eventData.hostName.size() <= 50
+        && eventData.district is string
+        && eventData.school is string
+        && eventData.source == 'user-posted'
+        && eventData.imported == false
+        && eventData.attendeeCount == 0
+        && eventData.moderationStatus == 'pending'
+        && eventData.suppressionReason == null
+        && eventData.relevanceScore == 0
+        && eventData.aiCategory == null
+        && eventData.reviewedAt == null
+        && eventData.reviewedBy == null
+        && eventData.createdAt is timestamp
+        && eventData.updatedAt is timestamp
+        && (
+          (eventData.status == 'draft' && eventData.publishedAt == null)
+          || (
+            eventData.status == 'published'
+            && eventData.publishedAt is timestamp
           )
         );
     }
@@ -138,6 +247,7 @@ service cloud.firestore {
 
       allow create: if isVerified()
         && validHostEventData(request.resource.data)
+        && validHostEventCreationData(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.status in ['draft', 'published']
         && request.resource.data.school == userSchool()
