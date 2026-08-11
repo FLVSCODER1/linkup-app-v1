@@ -20,6 +20,7 @@ interface EventFormProps {
   submitting: boolean;
   message: string;
   submitLabel?: string;
+  showDraftAction?: boolean;
   coverImageUrl?: string | null;
   coverFile: File | null;
   coverRemoved: boolean;
@@ -50,6 +51,7 @@ export default function EventForm({
   submitting,
   message,
   submitLabel = "Publish event",
+  showDraftAction = true,
   coverImageUrl,
   coverFile,
   coverRemoved,
@@ -177,8 +179,10 @@ export default function EventForm({
           <input className="mt-2 w-full rounded-lg bg-white/10 p-3 text-white outline-none" type="datetime-local" value={value.rsvpDeadline} onChange={(event) => update("rsvpDeadline", event.target.value)} />
         </label>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <button type="button" disabled={submitting} onClick={() => onSubmit("draft")} className="rounded-lg border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">Save draft</button>
+      <div className={`mt-5 grid gap-3 ${showDraftAction ? "sm:grid-cols-2" : ""}`}>
+        {showDraftAction ? (
+          <button type="button" disabled={submitting} onClick={() => onSubmit("draft")} className="rounded-lg border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">Save draft</button>
+        ) : null}
         <button type="button" disabled={submitting} onClick={() => onSubmit("published")} className="rounded-lg bg-white px-4 py-3 font-semibold text-black disabled:opacity-50">{submitting ? "Saving..." : submitLabel}</button>
       </div>
       {message && <p role="alert" className="mt-4 text-sm text-white/70">{message}</p>}

@@ -103,7 +103,11 @@ export default function NewEventPage() {
           throw error;
         }
       }
-      router.push(`/events/${eventId}`);
+      if (status === "draft") {
+        router.replace(`/events/drafts?saved=${encodeURIComponent(eventId)}`);
+      } else {
+        router.push(`/events/${eventId}`);
+      }
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, "Failed to save event."));
     } finally {

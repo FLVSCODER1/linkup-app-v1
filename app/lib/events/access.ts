@@ -2,8 +2,13 @@ import type { FeedEvent, UserProfile } from "./types";
 
 export function canUserAccessEvent(
   event: FeedEvent,
-  profile: UserProfile
+  profile: UserProfile,
+  currentUserId?: string
 ): boolean {
+  // Hosts must be able to open their own unpublished drafts even when a
+  // legacy profile or school-directory change no longer matches the event.
+  if (currentUserId && event.createdBy === currentUserId) return true;
+
   if (event.visibility === "public") return true;
 
   if (event.visibility === "school") {
@@ -20,4 +25,3 @@ export function canUserAccessEvent(
 
   return false;
 }
-
