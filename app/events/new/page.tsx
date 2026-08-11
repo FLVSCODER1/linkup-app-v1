@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
 
 import EventForm from "../../components/events/EventForm";
 import NavMenu from "../../components/layout/NavMenu";
@@ -12,6 +12,12 @@ import { hasVerifiedAccount } from "../../lib/auth/verification";
 import { getErrorMessage } from "../../lib/errors";
 import { auth, db } from "../../lib/firebase";
 import { validateEventInput, type EventFormInput } from "../../lib/events/management";
+import {
+  compressEventCover,
+  createEventCoverPath,
+  deleteEventCover,
+  uploadEventCover,
+} from "../../lib/events/cover-images";
 import type { UserProfile } from "../../lib/events/types";
 
 const emptyEvent: EventFormInput = {
@@ -36,6 +42,8 @@ export default function NewEventPage() {
   const [form, setForm] = useState(emptyEvent);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverRemoved, setCoverRemoved] = useState(false);
 
   useEffect(() => onAuthStateChanged(auth, async (user) => {
     if (!user) return router.replace("/");
@@ -58,6 +66,8 @@ export default function NewEventPage() {
       setMessage("");
       const value = validation.value;
       const eventId = `${slugify(value.title)}-${Date.now()}`;
+      const coverBlob = coverFile ? await compressEventCover(coverFile) : null;
+      const coverImagePath = coverBlob ? createEventCoverPath(eventId) : null;
       await setDoc(doc(db, "events", eventId), {
         title: value.title,
         description: value.description,
@@ -76,6 +86,7 @@ export default function NewEventPage() {
         capacity: value.capacity,
         rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
         attendeeCount: 0,
+        coverImagePath,
         moderationStatus: "pending",
         suppressionReason: null,
         relevanceScore: 0,
@@ -86,6 +97,15 @@ export default function NewEventPage() {
         updatedAt: serverTimestamp(),
         publishedAt: status === "published" ? serverTimestamp() : null,
       });
+      if (coverBlob && coverImagePath) {
+        try {
+          await uploadEventCover(coverImagePath, eventId, user.uid, coverBlob);
+        } catch (error) {
+          await deleteEventCover(coverImagePath).catch(() => undefined);
+          await deleteDoc(doc(db, "events", eventId)).catch(() => undefined);
+          throw error;
+        }
+      }
       router.push(`/events/${eventId}`);
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, "Failed to save event."));
@@ -101,7 +121,23 @@ export default function NewEventPage() {
         <BackButton href="/events" label="Events" />
         <h1 className="mb-2 text-3xl font-bold">Create an event</h1>
         <p className="mb-6 text-sm text-white/70">Organize something real for students at your school or district.</p>
-        <EventForm value={form} onChange={setForm} onSubmit={save} submitting={submitting} message={message} />
+        <EventForm
+          value={form}
+          onChange={setForm}
+          onSubmit={save}
+          submitting={submitting}
+          message={message}
+          coverFile={coverFile}
+          coverRemoved={coverRemoved}
+          onCoverFileChange={(file) => {
+            setCoverFile(file);
+            setCoverRemoved(false);
+          }}
+          onCoverRemove={() => {
+            setCoverFile(null);
+            setCoverRemoved(true);
+          }}
+        />
       </div>
     </main>
   );

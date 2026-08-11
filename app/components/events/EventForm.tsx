@@ -1,10 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+import EventCoverImage from "./EventCoverImage";
 import {
   EVENT_CATEGORIES,
   EVENT_VISIBILITIES,
   type EventFormInput,
 } from "../../lib/events/management";
+import {
+  EVENT_COVER_ACCEPT,
+  validateEventCoverSource,
+} from "../../lib/events/cover-images";
 
 interface EventFormProps {
   value: EventFormInput;
@@ -13,6 +20,27 @@ interface EventFormProps {
   submitting: boolean;
   message: string;
   submitLabel?: string;
+  coverImagePath?: string | null;
+  coverFile: File | null;
+  coverRemoved: boolean;
+  onCoverFileChange: (file: File | null) => void;
+  onCoverRemove: () => void;
+}
+
+function LocalCoverPreview({ file }: { file: File }) {
+  const [url] = useState(() => URL.createObjectURL(file));
+
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+
+  return (
+    // Local object URLs are previews and cannot use Next Image.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt="Selected event cover preview"
+      className="aspect-[16/9] w-full object-cover"
+    />
+  );
 }
 
 export default function EventForm({
@@ -22,6 +50,11 @@ export default function EventForm({
   submitting,
   message,
   submitLabel = "Publish event",
+  coverImagePath,
+  coverFile,
+  coverRemoved,
+  onCoverFileChange,
+  onCoverRemove,
 }: EventFormProps) {
   function update(field: keyof EventFormInput, nextValue: string) {
     onChange({ ...value, [field]: nextValue });
@@ -29,6 +62,49 @@ export default function EventForm({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="mb-5">
+        <p className="text-sm text-white/70">Event cover (optional)</p>
+        <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
+          {coverFile ? (
+            <LocalCoverPreview
+              key={`${coverFile.name}-${coverFile.size}-${coverFile.lastModified}`}
+              file={coverFile}
+            />
+          ) : (
+            <EventCoverImage
+              path={coverRemoved ? null : coverImagePath}
+              className="aspect-[16/9] w-full"
+            />
+          )}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3">
+          <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black">
+            {coverFile || (!coverRemoved && coverImagePath) ? "Replace image" : "Choose image"}
+            <input
+              type="file"
+              accept={EVENT_COVER_ACCEPT}
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                if (!file) return;
+                const error = validateEventCoverSource(file);
+                if (error) {
+                  event.target.value = "";
+                  window.alert(error);
+                  return;
+                }
+                onCoverFileChange(file);
+              }}
+            />
+          </label>
+          {(coverFile || (!coverRemoved && coverImagePath)) && (
+            <button type="button" onClick={onCoverRemove} className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70">
+              Remove image
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-white/45">JPEG, PNG, or WebP up to 8 MB. Important details should still be written below.</p>
+      </div>
       <label className="mb-3 block text-sm text-white/70">
         Title
         <input className="mt-2 w-full rounded-lg bg-white/10 p-3 text-white outline-none" value={value.title} maxLength={100} onChange={(event) => update("title", event.target.value)} />

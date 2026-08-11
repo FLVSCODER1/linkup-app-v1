@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return signedIn()
+        && (
+          request.auth.token.email_verified == true
+          || request.auth.token.get('linkup_verified', false) == true
+        );
+    }
+
+    function eventDoc(eventId) {
+      return firestore.get(
+        /databases/(default)/documents/events/$(eventId)
+      );
+    }
+
+    function userDoc() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.uid)
+      );
+    }
+
+    function canReadEventCover(eventId) {
+      let event = eventDoc(eventId).data;
+      let user = userDoc().data;
+      return event.createdBy == request.auth.uid
+        || (
+          event.status == 'published'
+          && (
+            (
+              event.visibility == 'school'
+              && user.school != null
+              && user.district != null
+              && event.school == user.school
+              && event.district == user.district
+            )
+            || (
+              event.visibility == 'district'
+              && user.district != null
+              && event.district == user.district
+            )
+          )
+        );
+    }
+
+    function hostOwnsEvent(eventId) {
+      return eventDoc(eventId).data.createdBy == request.auth.uid;
+    }
+
+    function validEventCover(eventId) {
+      return request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType == 'image/webp'
+        && request.resource.metadata.eventId == eventId
+        && request.resource.metadata.ownerId == request.auth.uid;
+    }
+
+    match /event-covers/{eventId}/{fileName} {
+      allow read: if isVerified() && canReadEventCover(eventId);
+
+      allow create, update: if isVerified()
+        && fileName.matches('[A-Za-z0-9_-]+[.]webp')
+        && hostOwnsEvent(eventId)
+        && validEventCover(eventId);
+
+      allow delete: if isVerified() && hostOwnsEvent(eventId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
