@@ -57,7 +57,7 @@ export async function uploadCloudinaryEventCover(eventId: string, file: File) {
     timestamp,
   };
   const data = new FormData();
-  data.set("file", file, "cover.webp");
+  data.set("file", file, file.type === "image/webp" ? "cover.webp" : "cover.jpg");
   data.set("api_key", config.apiKey);
   data.set("public_id", publicId);
   data.set("timestamp", String(timestamp));
