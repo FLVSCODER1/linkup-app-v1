@@ -16,6 +16,8 @@ export const EVENT_CATEGORIES = [
 
 export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
+export const DEFAULT_EVENT_CATEGORY: EventCategory = "academic";
+
 const CATEGORY_KEYWORDS: Record<EventCategory, string[]> = {
   social: ["party", "hangout", "social", "meetup"],
   sports: ["football", "soccer", "basketball", "practice", "game", "sports"],
