@@ -1,6 +1,10 @@
 "use client";
 
-import { EVENT_CATEGORIES, type EventFormInput } from "../../lib/events/management";
+import {
+  EVENT_CATEGORIES,
+  EVENT_VISIBILITIES,
+  type EventFormInput,
+} from "../../lib/events/management";
 
 interface EventFormProps {
   value: EventFormInput;
@@ -45,6 +49,20 @@ export default function EventForm({
           {EVENT_CATEGORIES.map((category) => <option key={category} value={category}>{category[0].toUpperCase() + category.slice(1)}</option>)}
         </select>
       </label>
+      <label className="mt-3 block text-sm text-white/70">Who can find this event?
+        <select className="mt-2 w-full rounded-lg bg-black p-3 text-white outline-none" value={value.visibility} onChange={(event) => update("visibility", event.target.value)}>
+          {EVENT_VISIBILITIES.map((visibility) => (
+            <option key={visibility} value={visibility}>
+              {visibility === "district" ? "Verified students in my district" : "Verified students at my school"}
+            </option>
+          ))}
+        </select>
+        <span className="mt-2 block text-xs text-white/50">
+          {value.visibility === "district"
+            ? "Students at other verified schools in your district can discover this event."
+            : "Only verified students at your school can discover this event."}
+        </span>
+      </label>
       <label className="mt-3 block text-sm text-white/70">Description
         <textarea className="mt-2 min-h-32 w-full rounded-lg bg-white/10 p-3 text-white outline-none" value={value.description} maxLength={1000} onChange={(event) => update("description", event.target.value)} />
         <span className="mt-1 block text-right text-xs text-white/40">{value.description.length}/1000</span>
@@ -57,7 +75,6 @@ export default function EventForm({
           <input className="mt-2 w-full rounded-lg bg-white/10 p-3 text-white outline-none" type="datetime-local" value={value.rsvpDeadline} onChange={(event) => update("rsvpDeadline", event.target.value)} />
         </label>
       </div>
-      <p className="mt-4 text-xs text-white/50">Visible only to verified students at your school.</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <button type="button" disabled={submitting} onClick={() => onSubmit("draft")} className="rounded-lg border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">Save draft</button>
         <button type="button" disabled={submitting} onClick={() => onSubmit("published")} className="rounded-lg bg-white px-4 py-3 font-semibold text-black disabled:opacity-50">{submitting ? "Saving..." : submitLabel}</button>

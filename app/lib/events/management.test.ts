@@ -11,6 +11,7 @@ const validInput = {
   description: "Build something fun.",
   capacity: "24",
   rsvpDeadline: "2030-01-09T16:00",
+  visibility: "school",
 };
 
 describe("event management validation", () => {
@@ -20,7 +21,28 @@ describe("event management validation", () => {
     if (result.valid) {
       expect(result.value.capacity).toBe(24);
       expect(result.value.location).toBe("Room 201");
+      expect(result.value.visibility).toBe("school");
     }
+  });
+
+  it("allows district-wide visibility", () => {
+    const result = validateEventInput({
+      ...validInput,
+      visibility: "district",
+    });
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.value.visibility).toBe("district");
+  });
+
+  it("rejects unsupported visibility values", () => {
+    const result = validateEventInput({
+      ...validInput,
+      visibility: "public",
+    });
+    expect(result).toEqual({
+      valid: false,
+      error: "Choose whether this event is visible to your school or district.",
+    });
   });
 
   it("allows optional end time, deadline, and capacity", () => {

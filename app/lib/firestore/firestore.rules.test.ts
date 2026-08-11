@@ -12,6 +12,7 @@ import {
   getDocs,
   orderBy,
   query,
+  serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
@@ -32,6 +33,38 @@ function firestoreFor(
       ...claims,
     })
     .firestore();
+}
+
+function hostEventData(overrides: Record<string, unknown> = {}) {
+  return {
+    title: "Robotics meetup",
+    description: "Build something fun.",
+    location: "Room 201",
+    category: "club",
+    createdBy: "alpha-student",
+    status: "published",
+    visibility: "school",
+    district: "Test District",
+    school: "Alpha High",
+    capacity: 24,
+    startTime: Timestamp.fromDate(new Date("2030-01-10T16:00:00Z")),
+    endTime: null,
+    rsvpDeadline: null,
+    hostName: "Alpha Student",
+    source: "user-posted",
+    imported: false,
+    attendeeCount: 0,
+    moderationStatus: "pending",
+    suppressionReason: null,
+    relevanceScore: 0,
+    aiCategory: null,
+    reviewedAt: null,
+    reviewedBy: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    publishedAt: serverTimestamp(),
+    ...overrides,
+  };
 }
 
 async function seedData() {
@@ -230,6 +263,139 @@ describe("LinkUp Firestore trust boundaries", () => {
     );
 
     await assertSucceeds(getDocs(districtFeed));
+  });
+
+  it("allows verified hosts to create school or district events", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertSucceeds(
+      setDoc(doc(db, "events", "host-school-event"), hostEventData())
+    );
+    await assertSucceeds(
+      setDoc(
+        doc(db, "events", "host-district-event"),
+        hostEventData({ visibility: "district" })
+      )
+    );
+  });
+
+  it("rejects unsupported or forged event visibility identity", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-public-event"),
+        hostEventData({ visibility: "public" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-wrong-school-event"),
+        hostEventData({ visibility: "district", school: "Beta High" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-wrong-district-event"),
+        hostEventData({ visibility: "district", district: "Other District" })
+      )
+    );
+  });
+
+  it("rejects forged host moderation state and unexpected fields", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-approval"),
+        hostEventData({ moderationStatus: "approved" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-reviewer"),
+        hostEventData({ reviewedBy: "alpha-student" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-unexpected-field"),
+        hostEventData({ adminApproved: true })
+      )
+    );
+  });
+
+  it("rejects malformed host event dates and categories", async () => {
+    const db = firestoreFor("alpha-student");
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-category"),
+        hostEventData({ category: "announcement" })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-end"),
+        hostEventData({
+          endTime: Timestamp.fromDate(new Date("2030-01-10T15:00:00Z")),
+        })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-invalid-deadline"),
+        hostEventData({
+          rsvpDeadline: Timestamp.fromDate(new Date("2030-01-10T17:00:00Z")),
+        })
+      )
+    );
+  });
+
+  it("rejects client-forged event audit timestamps", async () => {
+    const db = firestoreFor("alpha-student");
+    const forgedTime = Timestamp.fromDate(new Date("2029-12-01T16:00:00Z"));
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-created-at"),
+        hostEventData({ createdAt: forgedTime })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-published-at"),
+        hostEventData({ publishedAt: forgedTime })
+      )
+    );
+  });
+
+  it("lets hosts switch visibility without changing school identity", async () => {
+    const db = firestoreFor("alpha-student");
+    const eventRef = doc(db, "events", "host-visibility-event");
+
+    await assertSucceeds(setDoc(eventRef, hostEventData()));
+    await assertSucceeds(
+      updateDoc(eventRef, {
+        visibility: "district",
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertFails(
+      updateDoc(eventRef, {
+        visibility: "district",
+        updatedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
+      })
+    );
+    await assertSucceeds(
+      updateDoc(eventRef, {
+        visibility: "school",
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertFails(updateDoc(eventRef, { visibility: "public" }));
+    await assertFails(updateDoc(eventRef, { school: "Beta High" }));
+    await assertFails(updateDoc(eventRef, { district: "Other District" }));
   });
 
   it("keeps identity assignment server-only and school fields immutable", async () => {

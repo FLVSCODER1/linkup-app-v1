@@ -23,6 +23,7 @@ const emptyEvent: EventFormInput = {
   description: "",
   capacity: "",
   rsvpDeadline: "",
+  visibility: "school",
 };
 
 function slugify(text: string) {
@@ -64,7 +65,7 @@ export default function NewEventPage() {
         category: value.category,
         district: profile.district,
         school: profile.school,
-        visibility: "school",
+        visibility: value.visibility,
         status,
         createdBy: user.uid,
         hostName: profile.displayName || "Student host",
@@ -99,7 +100,7 @@ export default function NewEventPage() {
       <div className="mx-auto max-w-2xl">
         <BackButton href="/events" label="Events" />
         <h1 className="mb-2 text-3xl font-bold">Create an event</h1>
-        <p className="mb-6 text-sm text-white/70">Organize something real for students at your school.</p>
+        <p className="mb-6 text-sm text-white/70">Organize something real for students at your school or district.</p>
         <EventForm value={form} onChange={setForm} onSubmit={save} submitting={submitting} message={message} />
       </div>
     </main>
