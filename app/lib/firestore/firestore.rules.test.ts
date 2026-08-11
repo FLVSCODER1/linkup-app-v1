@@ -20,6 +20,8 @@ import {
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { EVENT_CATEGORIES } from "../events/categories";
+
 const projectId = "demo-linkup";
 let testEnvironment: RulesTestEnvironment;
 
@@ -315,6 +317,19 @@ describe("LinkUp Firestore trust boundaries", () => {
         hostEventData({ visibility: "district" })
       )
     );
+  });
+
+  it("allows every event category exposed by the creation form", async () => {
+    const db = firestoreFor("alpha-student");
+
+    for (const category of EVENT_CATEGORIES) {
+      await assertSucceeds(
+        setDoc(
+          doc(db, "events", `host-${category}-event`),
+          hostEventData({ category })
+        )
+      );
+    }
   });
 
   it("rejects unsupported or forged event visibility identity", async () => {

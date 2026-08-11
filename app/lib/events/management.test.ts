@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_EVENT_CATEGORY, EVENT_CATEGORIES } from "./categories";
 import { validateEventInput } from "./management";
 
 const validInput = {
@@ -15,6 +16,10 @@ const validInput = {
 };
 
 describe("event management validation", () => {
+  it("keeps the default category inside the supported category list", () => {
+    expect(EVENT_CATEGORIES).toContain(DEFAULT_EVENT_CATEGORY);
+  });
+
   it("normalizes a complete event", () => {
     const result = validateEventInput(validInput);
     expect(result.valid).toBe(true);

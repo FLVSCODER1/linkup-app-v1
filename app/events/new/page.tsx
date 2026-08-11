@@ -16,6 +16,7 @@ import {
   compressEventCover,
   uploadEventCover,
 } from "../../lib/events/cover-images";
+import { DEFAULT_EVENT_CATEGORY } from "../../lib/events/categories";
 import type { UserProfile } from "../../lib/events/types";
 
 const emptyEvent: EventFormInput = {
@@ -23,7 +24,7 @@ const emptyEvent: EventFormInput = {
   startTime: "",
   endTime: "",
   location: "",
-  category: "study",
+  category: DEFAULT_EVENT_CATEGORY,
   description: "",
   capacity: "",
   rsvpDeadline: "",
