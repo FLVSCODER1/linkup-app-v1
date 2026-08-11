@@ -35,33 +35,6 @@ function firestoreFor(
     .firestore();
 }
 
-function storageFor(
-  uid: string,
-  claims: Record<string, unknown> = { email_verified: true }
-) {
-  return testEnvironment
-    .authenticatedContext(uid, {
-      email: `${uid}@students.example.org`,
-      ...claims,
-    })
-    .storage();
-}
-
-function uploadString(
-  uid: string,
-  path: string,
-  metadata: {
-    contentType?: string;
-    customMetadata?: Record<string, string>;
-  },
-  claims?: Record<string, unknown>
-) {
-  const task = storageFor(uid, claims).ref(path).putString("cover", "raw", metadata);
-  return new Promise<unknown>((resolve, reject) => {
-    task.then(resolve, reject);
-  });
-}
-
 function hostEventData(overrides: Record<string, unknown> = {}) {
   return {
     title: "Robotics meetup",
@@ -81,7 +54,8 @@ function hostEventData(overrides: Record<string, unknown> = {}) {
     source: "user-posted",
     imported: false,
     attendeeCount: 0,
-    coverImagePath: null,
+    coverImageUrl: null,
+    coverImagePublicId: null,
     moderationStatus: "pending",
     suppressionReason: null,
     relevanceScore: 0,
@@ -222,73 +196,12 @@ beforeAll(async () => {
       host: "127.0.0.1",
       port: 8080,
     },
-    storage: {
-      rules: readFileSync("storage.rules", "utf8"),
-      host: "127.0.0.1",
-      port: 9199,
-    },
   });
 });
 
 beforeEach(async () => {
   await testEnvironment.clearFirestore();
-  await testEnvironment.clearStorage();
   await seedData();
-});
-
-describe("LinkUp event-cover Storage boundaries", () => {
-  const path = "event-covers/alpha-host-event/2030-cover.webp";
-  const validMetadata = {
-    contentType: "image/webp",
-    customMetadata: {
-      eventId: "alpha-host-event",
-      ownerId: "alpha-student",
-    },
-  };
-
-  it("allows a verified host to upload and read a valid cover", async () => {
-    const storage = storageFor("alpha-student");
-    await assertSucceeds(uploadString("alpha-student", path, validMetadata));
-    await assertSucceeds(storage.ref(path).getMetadata());
-  });
-
-  it("denies cover uploads by non-hosts and unverified hosts", async () => {
-    await assertFails(uploadString("beta-student", path, {
-      ...validMetadata,
-      customMetadata: {
-        eventId: "alpha-host-event",
-        ownerId: "beta-student",
-      },
-    }));
-    await assertFails(
-      uploadString("alpha-student", path, validMetadata, {
-        email_verified: false,
-      })
-    );
-  });
-
-  it("rejects invalid content types and forged metadata", async () => {
-    await assertFails(uploadString("alpha-student", path, {
-      ...validMetadata,
-      contentType: "image/svg+xml",
-    }));
-    await assertFails(uploadString("alpha-student", path, {
-      ...validMetadata,
-      customMetadata: {
-        eventId: "another-event",
-        ownerId: "alpha-student",
-      },
-    }));
-  });
-
-  it("keeps school-only covers hidden from other schools", async () => {
-    await assertSucceeds(
-      uploadString("alpha-student", path, validMetadata)
-    );
-
-    await assertFails(storageFor("beta-student").ref(path).getMetadata());
-    await assertFails(storageFor("other-district").ref(path).getMetadata());
-  });
 });
 
 afterAll(async () => {
@@ -449,31 +362,31 @@ describe("LinkUp Firestore trust boundaries", () => {
     );
   });
 
-  it("accepts only event-scoped WebP cover paths", async () => {
+  it("keeps event cover fields server-controlled", async () => {
     const db = firestoreFor("alpha-student");
 
-    await assertSucceeds(
+    await assertFails(
       setDoc(
         doc(db, "events", "covered-event"),
         hostEventData({
-          coverImagePath: "event-covers/covered-event/2030-cover.webp",
+          coverImageUrl:
+            "https://res.cloudinary.com/linkup/image/upload/v1/linkup/event-covers/covered-event.webp",
+          coverImagePublicId: "linkup/event-covers/covered-event",
         })
       )
     );
     await assertFails(
-      setDoc(
-        doc(db, "events", "forged-cover-event"),
-        hostEventData({
-          coverImagePath: "event-covers/another-event/2030-cover.webp",
-        })
-      )
+      updateDoc(doc(db, "events", "alpha-host-event"), {
+        coverImageUrl:
+          "https://res.cloudinary.com/linkup/image/upload/v1/linkup/event-covers/alpha-host-event.webp",
+        coverImagePublicId: "linkup/event-covers/alpha-host-event",
+        updatedAt: serverTimestamp(),
+      })
     );
-    await assertFails(
+    await assertSucceeds(
       setDoc(
-        doc(db, "events", "public-url-event"),
-        hostEventData({
-          coverImagePath: "https://example.com/public-image.jpg",
-        })
+        doc(db, "events", "no-cover-event"),
+        hostEventData()
       )
     );
   });

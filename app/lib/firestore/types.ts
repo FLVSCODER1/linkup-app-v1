@@ -125,7 +125,8 @@ export interface EventDocument {
   sourceId?: string;
   imported: boolean;
   attendeeCount: number;
-  coverImagePath?: string | null;
+  coverImageUrl?: string | null;
+  coverImagePublicId?: string | null;
   capacity?: number | null;
   rsvpDeadline?: FirestoreDate;
   startTime: FirestoreDate;

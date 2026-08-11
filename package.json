@@ -1,13 +1,13 @@
 {
   "name": "nextjs",
-  "version": "0.7.0-beta.7",
+  "version": "0.7.0-beta.8",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-linkup \"vitest run --config vitest.rules.config.ts\"",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-linkup \"vitest run --config vitest.rules.config.ts\"",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "check": "npm run test && npm run test:rules && npm run lint && npm run typecheck && npm run build"

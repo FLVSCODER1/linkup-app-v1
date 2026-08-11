@@ -20,7 +20,7 @@ interface EventFormProps {
   submitting: boolean;
   message: string;
   submitLabel?: string;
-  coverImagePath?: string | null;
+  coverImageUrl?: string | null;
   coverFile: File | null;
   coverRemoved: boolean;
   onCoverFileChange: (file: File | null) => void;
@@ -50,7 +50,7 @@ export default function EventForm({
   submitting,
   message,
   submitLabel = "Publish event",
-  coverImagePath,
+  coverImageUrl,
   coverFile,
   coverRemoved,
   onCoverFileChange,
@@ -72,14 +72,14 @@ export default function EventForm({
             />
           ) : (
             <EventCoverImage
-              path={coverRemoved ? null : coverImagePath}
+              url={coverRemoved ? null : coverImageUrl}
               className="aspect-[16/9] w-full"
             />
           )}
         </div>
         <div className="mt-3 flex flex-wrap gap-3">
           <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black">
-            {coverFile || (!coverRemoved && coverImagePath) ? "Replace image" : "Choose image"}
+            {coverFile || (!coverRemoved && coverImageUrl) ? "Replace image" : "Choose image"}
             <input
               type="file"
               accept={EVENT_COVER_ACCEPT}
@@ -97,13 +97,16 @@ export default function EventForm({
               }}
             />
           </label>
-          {(coverFile || (!coverRemoved && coverImagePath)) && (
+          {(coverFile || (!coverRemoved && coverImageUrl)) && (
             <button type="button" onClick={onCoverRemove} className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70">
               Remove image
             </button>
           )}
         </div>
-        <p className="mt-2 text-xs text-white/45">JPEG, PNG, or WebP up to 8 MB. Important details should still be written below.</p>
+        <p className="mt-2 text-xs text-white/45">
+          JPEG, PNG, or WebP up to 8 MB. Do not include private schedules,
+          student IDs, or contact details; write important event information below.
+        </p>
       </div>
       <label className="mb-3 block text-sm text-white/70">
         Title

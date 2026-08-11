@@ -14,8 +14,6 @@ import { auth, db } from "../../lib/firebase";
 import { validateEventInput, type EventFormInput } from "../../lib/events/management";
 import {
   compressEventCover,
-  createEventCoverPath,
-  deleteEventCover,
   uploadEventCover,
 } from "../../lib/events/cover-images";
 import type { UserProfile } from "../../lib/events/types";
@@ -67,7 +65,6 @@ export default function NewEventPage() {
       const value = validation.value;
       const eventId = `${slugify(value.title)}-${Date.now()}`;
       const coverBlob = coverFile ? await compressEventCover(coverFile) : null;
-      const coverImagePath = coverBlob ? createEventCoverPath(eventId) : null;
       await setDoc(doc(db, "events", eventId), {
         title: value.title,
         description: value.description,
@@ -86,7 +83,8 @@ export default function NewEventPage() {
         capacity: value.capacity,
         rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
         attendeeCount: 0,
-        coverImagePath,
+        coverImageUrl: null,
+        coverImagePublicId: null,
         moderationStatus: "pending",
         suppressionReason: null,
         relevanceScore: 0,
@@ -97,11 +95,10 @@ export default function NewEventPage() {
         updatedAt: serverTimestamp(),
         publishedAt: status === "published" ? serverTimestamp() : null,
       });
-      if (coverBlob && coverImagePath) {
+      if (coverBlob) {
         try {
-          await uploadEventCover(coverImagePath, eventId, user.uid, coverBlob);
+          await uploadEventCover(user, eventId, coverBlob);
         } catch (error) {
-          await deleteEventCover(coverImagePath).catch(() => undefined);
           await deleteDoc(doc(db, "events", eventId)).catch(() => undefined);
           throw error;
         }
