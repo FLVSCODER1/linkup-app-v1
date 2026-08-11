@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import EventCoverImage from "./EventCoverImage";
 import {
@@ -56,6 +56,9 @@ export default function EventForm({
   onCoverFileChange,
   onCoverRemove,
 }: EventFormProps) {
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [coverSelectionError, setCoverSelectionError] = useState("");
+
   function update(field: keyof EventFormInput, nextValue: string) {
     onChange({ ...value, [field]: nextValue });
   }
@@ -78,25 +81,40 @@ export default function EventForm({
           )}
         </div>
         <div className="mt-3 flex flex-wrap gap-3">
-          <label className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black">
+          <button
+            type="button"
+            className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black"
+            onClick={() => {
+              setCoverSelectionError("");
+              if (coverInputRef.current) {
+                coverInputRef.current.value = "";
+                coverInputRef.current.click();
+              } else {
+                setCoverSelectionError("The image picker could not open. Reload the page and try again.");
+              }
+            }}
+          >
             {coverFile || (!coverRemoved && coverImageUrl) ? "Replace image" : "Choose image"}
-            <input
-              type="file"
-              accept={EVENT_COVER_ACCEPT}
-              className="sr-only"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null;
-                if (!file) return;
-                const error = validateEventCoverSource(file);
-                if (error) {
-                  event.target.value = "";
-                  window.alert(error);
-                  return;
-                }
-                onCoverFileChange(file);
-              }}
-            />
-          </label>
+          </button>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept={EVENT_COVER_ACCEPT}
+            className="hidden"
+            aria-label="Choose an event cover image"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              if (!file) return;
+              const error = validateEventCoverSource(file);
+              if (error) {
+                event.target.value = "";
+                setCoverSelectionError(error);
+                return;
+              }
+              setCoverSelectionError("");
+              onCoverFileChange(file);
+            }}
+          />
           {(coverFile || (!coverRemoved && coverImageUrl)) && (
             <button type="button" onClick={onCoverRemove} className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70">
               Remove image
@@ -107,6 +125,11 @@ export default function EventForm({
           JPEG, PNG, or WebP up to 8 MB. Do not include private schedules,
           student IDs, or contact details; write important event information below.
         </p>
+        {coverSelectionError && (
+          <p role="alert" className="mt-2 text-sm text-red-300">
+            {coverSelectionError}
+          </p>
+        )}
       </div>
       <label className="mb-3 block text-sm text-white/70">
         Title
