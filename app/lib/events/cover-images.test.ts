@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  EVENT_COVER_UPLOAD_TYPES,
   MAX_EVENT_COVER_SOURCE_BYTES,
   validateEventCoverSource,
 } from "./cover-images";
@@ -14,6 +15,14 @@ describe("event cover image validation", () => {
     expect(validateEventCoverSource(imageFile("image/jpeg"))).toBeNull();
     expect(validateEventCoverSource(imageFile("image/png"))).toBeNull();
     expect(validateEventCoverSource(imageFile("image/webp"))).toBeNull();
+    expect(validateEventCoverSource(imageFile("image/heic"))).toBeNull();
+    expect(validateEventCoverSource(imageFile("image/heif"))).toBeNull();
+  });
+
+  it("allows optimized WebP and JPEG uploads for browser compatibility", () => {
+    expect(EVENT_COVER_UPLOAD_TYPES.has("image/webp")).toBe(true);
+    expect(EVENT_COVER_UPLOAD_TYPES.has("image/jpeg")).toBe(true);
+    expect(EVENT_COVER_UPLOAD_TYPES.has("image/png")).toBe(false);
   });
 
   it("rejects SVG and oversized source files", () => {

@@ -9,7 +9,10 @@ import {
   deleteCloudinaryEventCover,
   uploadCloudinaryEventCover,
 } from "@/app/lib/events/cloudinary.server";
-import { MAX_EVENT_COVER_BYTES } from "@/app/lib/events/cover-images";
+import {
+  EVENT_COVER_UPLOAD_TYPES,
+  MAX_EVENT_COVER_BYTES,
+} from "@/app/lib/events/cover-images";
 import { getAdminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
@@ -42,8 +45,11 @@ export async function POST(
     }
     const form = await request.formData();
     const file = form.get("file");
-    if (!(file instanceof File) || file.type !== "image/webp") {
-      return NextResponse.json({ error: "Upload a WebP image." }, { status: 400 });
+    if (!(file instanceof File) || !EVENT_COVER_UPLOAD_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: "Upload a JPEG or WebP image." },
+        { status: 400 }
+      );
     }
     if (file.size <= 0 || file.size > MAX_EVENT_COVER_BYTES) {
       return NextResponse.json(
