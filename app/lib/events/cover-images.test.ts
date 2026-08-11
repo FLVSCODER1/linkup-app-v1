@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
-  createEventCoverPath,
   MAX_EVENT_COVER_SOURCE_BYTES,
   validateEventCoverSource,
 } from "./cover-images";
@@ -26,14 +25,4 @@ describe("event cover image validation", () => {
     ).toMatch(/smaller than 8 MB/);
   });
 
-  it("creates unique event-scoped WebP paths", () => {
-    vi.spyOn(crypto, "randomUUID").mockReturnValue(
-      "00000000-0000-4000-8000-000000000001"
-    );
-    vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
-
-    expect(createEventCoverPath("spring-social-1")).toBe(
-      "event-covers/spring-social-1/1800000000000-00000000-0000-4000-8000-000000000001.webp"
-    );
-  });
 });

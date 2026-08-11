@@ -127,7 +127,8 @@ export default function EventDetailsPage() {
         hostName: event.hostName || "Student host",
         source: "user-posted",
         imported: false,
-        coverImagePath: null,
+        coverImageUrl: null,
+        coverImagePublicId: null,
         startTime: event.startTime,
         endTime: event.endTime || null,
         capacity: event.capacity || null,
@@ -228,7 +229,7 @@ export default function EventDetailsPage() {
         ) : (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
             <EventCoverImage
-              path={event?.coverImagePath}
+              url={event?.coverImageUrl}
               className="mb-6 aspect-[16/9] w-full rounded-2xl"
             />
             <p className="mb-3 text-xs uppercase tracking-wide text-white/40">

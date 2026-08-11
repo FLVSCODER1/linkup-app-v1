@@ -15,7 +15,6 @@ import { toDateTimeLocal, validateEventInput, type EventFormInput } from "../../
 import type { FeedEvent } from "../../../lib/events/types";
 import {
   compressEventCover,
-  createEventCoverPath,
   deleteEventCover,
   uploadEventCover,
 } from "../../../lib/events/cover-images";
@@ -30,7 +29,7 @@ export default function EditEventPage() {
   }>({ status: "draft", publishedAt: null });
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [coverImagePath, setCoverImagePath] = useState<string | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverRemoved, setCoverRemoved] = useState(false);
 
@@ -48,7 +47,7 @@ export default function EditEventPage() {
         status: event.status,
         publishedAt: event.publishedAt,
       });
-      setCoverImagePath(event.coverImagePath || null);
+      setCoverImageUrl(event.coverImageUrl || null);
       setForm({
         title: event.title || "",
         startTime: toDateTimeLocal(event.startTime),
@@ -74,18 +73,7 @@ export default function EditEventPage() {
       const value = validation.value;
       const user = auth.currentUser;
       if (!user) throw new Error("Sign in again to update this event.");
-      let nextCoverPath = coverRemoved ? null : coverImagePath;
-      let uploadedCoverPath: string | null = null;
-
-      if (coverFile) {
-        const blob = await compressEventCover(coverFile);
-        uploadedCoverPath = createEventCoverPath(eventId);
-        await uploadEventCover(uploadedCoverPath, eventId, user.uid, blob);
-        nextCoverPath = uploadedCoverPath;
-      }
-
-      try {
-        await updateDoc(doc(db, "events", eventId), {
+      await updateDoc(doc(db, "events", eventId), {
           title: value.title,
           description: value.description,
           location: value.location,
@@ -98,7 +86,6 @@ export default function EditEventPage() {
             : null,
           visibility: value.visibility,
           status,
-          coverImagePath: nextCoverPath,
           publishedAt:
             status === "published"
               ? publication.status === "published" && publication.publishedAt
@@ -106,16 +93,11 @@ export default function EditEventPage() {
                 : serverTimestamp()
               : null,
           updatedAt: serverTimestamp(),
-        });
-      } catch (error) {
-        if (uploadedCoverPath) {
-          await deleteEventCover(uploadedCoverPath).catch(() => undefined);
-        }
-        throw error;
-      }
-
-      if (coverImagePath && coverImagePath !== nextCoverPath) {
-        await deleteEventCover(coverImagePath).catch(() => undefined);
+      });
+      if (coverFile) {
+        await uploadEventCover(user, eventId, await compressEventCover(coverFile));
+      } else if (coverRemoved && coverImageUrl) {
+        await deleteEventCover(user, eventId);
       }
       router.push(`/events/${eventId}`);
     } catch (error: unknown) {
@@ -129,10 +111,14 @@ export default function EditEventPage() {
     if (!window.confirm("Delete this event permanently?")) return;
     try {
       setSubmitting(true);
-      if (coverImagePath) {
-        await deleteEventCover(coverImagePath).catch((error: unknown) => {
-          const code = (error as { code?: string }).code;
-          if (code !== "storage/object-not-found") throw error;
+      const user = auth.currentUser;
+      if (!user) throw new Error("Sign in again to delete this event.");
+      if (coverImageUrl) {
+        // The event must remain deletable during an external image-service
+        // outage. A failed cleanup can leave one orphaned image, but it must
+        // not trap the host's event in Firestore.
+        await deleteEventCover(user, eventId).catch((error: unknown) => {
+          console.warn("Event image cleanup failed:", error);
         });
       }
       await deleteDoc(doc(db, "events", eventId));
@@ -156,7 +142,7 @@ export default function EditEventPage() {
           submitting={submitting}
           message={message}
           submitLabel="Update event"
-          coverImagePath={coverImagePath}
+          coverImageUrl={coverImageUrl}
           coverFile={coverFile}
           coverRemoved={coverRemoved}
           onCoverFileChange={(file) => {

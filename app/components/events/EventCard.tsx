@@ -23,9 +23,9 @@ export default function EventCard({
       onClick={onClick}
       className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
     >
-      {event.coverImagePath ? (
+      {event.coverImageUrl ? (
         <EventCoverImage
-          path={event.coverImagePath}
+          url={event.coverImageUrl}
           className="mb-5 aspect-[16/9] w-full rounded-xl"
         />
       ) : null}

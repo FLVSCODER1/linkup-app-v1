@@ -1,11 +1,4 @@
-import {
-  deleteObject,
-  getBlob,
-  ref,
-  uploadBytes,
-} from "firebase/storage";
-
-import { storage } from "../firebase";
+import type { User } from "firebase/auth";
 
 export const MAX_EVENT_COVER_SOURCE_BYTES = 8 * 1024 * 1024;
 export const MAX_EVENT_COVER_BYTES = 2 * 1024 * 1024;
@@ -24,11 +17,6 @@ export function validateEventCoverSource(file: File) {
     return "Choose an image smaller than 8 MB.";
   }
   return null;
-}
-
-export function createEventCoverPath(eventId: string) {
-  const version = `${Date.now()}-${crypto.randomUUID()}`;
-  return `event-covers/${eventId}/${version}.webp`;
 }
 
 export async function compressEventCover(file: File) {
@@ -63,22 +51,31 @@ export async function compressEventCover(file: File) {
   return blob;
 }
 
-export async function uploadEventCover(
-  path: string,
+async function coverRequest(
+  user: User,
   eventId: string,
-  ownerId: string,
-  blob: Blob
+  init: RequestInit
 ) {
-  await uploadBytes(ref(storage, path), blob, {
-    contentType: "image/webp",
-    customMetadata: { eventId, ownerId },
+  const token = await user.getIdToken();
+  const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/cover`, {
+    ...init,
+    headers: {
+      ...init.headers,
+      Authorization: `Bearer ${token}`,
+    },
   });
+  const body = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) {
+    throw new Error(body.error || "We couldn't update the event image.");
+  }
 }
 
-export async function loadEventCover(path: string) {
-  return getBlob(ref(storage, path), MAX_EVENT_COVER_BYTES);
+export async function uploadEventCover(user: User, eventId: string, blob: Blob) {
+  const data = new FormData();
+  data.set("file", blob, "cover.webp");
+  await coverRequest(user, eventId, { method: "POST", body: data });
 }
 
-export async function deleteEventCover(path: string) {
-  await deleteObject(ref(storage, path));
+export async function deleteEventCover(user: User, eventId: string) {
+  await coverRequest(user, eventId, { method: "DELETE" });
 }
