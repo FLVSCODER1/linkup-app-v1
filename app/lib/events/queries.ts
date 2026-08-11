@@ -8,9 +8,11 @@ import {
   type DocumentData,
   type QueryConstraint,
 } from "firebase/firestore";
+import type { User } from "firebase/auth";
 
 import { rankFeedEvents } from "./ranking";
 import { db } from "../firebase";
+import type { OwnedDraftEvent } from "./drafts";
 import { removeDuplicateEvents } from "./filter";
 import { applyModerationFilter } from "./moderation";
 import { formatEventDateRange } from "./date";
@@ -73,33 +75,24 @@ export async function getVisibleFeedEvents(
   );
 }
 
-export async function getOwnedDraftEvents(userId: string): Promise<FeedEvent[]> {
-  if (!userId) return [];
+export async function getOwnedDraftEvents(user: User): Promise<FeedEvent[]> {
+  const token = await user.getIdToken(true);
+  const response = await fetch("/api/events/drafts", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const data = (await response.json()) as {
+    drafts?: OwnedDraftEvent[];
+    error?: string;
+  };
 
-  // The owner constraint is important for both privacy and Firestore rule
-  // evaluation. We intentionally avoid a second status constraint so this
-  // query works without requiring another composite index.
-  const snapshot = await getDocs(
-    query(collection(db, "events"), where("createdBy", "==", userId))
-  );
+  if (!response.ok) {
+    throw new Error(data.error || "We couldn't load your drafts.");
+  }
 
-  return snapshot.docs
-    .map((eventDoc) => ({
-      id: eventDoc.id,
-      ...eventDoc.data(),
-      date: formatEventDateRange(
-        eventDoc.data().startTime,
-        eventDoc.data().endTime
-      ),
-    }) as FeedEvent)
-    .filter((event) => event.status === "draft")
-    .sort((a, b) => {
-      const aUpdated = a.updatedAt instanceof Timestamp
-        ? a.updatedAt.toMillis()
-        : 0;
-      const bUpdated = b.updatedAt instanceof Timestamp
-        ? b.updatedAt.toMillis()
-        : 0;
-      return bUpdated - aUpdated;
-    });
+  return (data.drafts ?? []).map((draft) => ({
+    ...draft,
+    status: "draft",
+    date: formatEventDateRange(draft.startTime, draft.endTime),
+  }));
 }

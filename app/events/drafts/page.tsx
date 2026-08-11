@@ -38,7 +38,7 @@ export default function EventDraftsPage() {
       try {
         setLoading(true);
         setError("");
-        setDrafts(await getOwnedDraftEvents(user.uid));
+        setDrafts(await getOwnedDraftEvents(user));
       } catch (loadError: unknown) {
         setError(getErrorMessage(loadError, "We couldn't load your drafts."));
       } finally {
