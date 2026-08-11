@@ -64,14 +64,16 @@ service cloud.firestore {
         && eventData.location is string
         && eventData.location.size() <= 120
         && eventData.category in [
+          'social',
           'sports',
-          'clubs',
           'academic',
-          'study',
+          'club',
+          'arts',
           'music',
-          'parties',
-          'volunteer',
-          'school',
+          'volunteering',
+          'gaming',
+          'fundraiser',
+          'competition',
           'other'
         ]
         && eventData.startTime is timestamp
@@ -173,13 +175,13 @@ service cloud.firestore {
         && eventData.aiCategory == null
         && eventData.reviewedAt == null
         && eventData.reviewedBy == null
-        && eventData.createdAt is timestamp
-        && eventData.updatedAt is timestamp
+        && eventData.createdAt == request.time
+        && eventData.updatedAt == request.time
         && (
           (eventData.status == 'draft' && eventData.publishedAt == null)
           || (
             eventData.status == 'published'
-            && eventData.publishedAt is timestamp
+            && eventData.publishedAt == request.time
           )
         );
     }
@@ -272,7 +274,32 @@ service cloud.firestore {
         ])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.school == resource.data.school
-        && request.resource.data.district == resource.data.district;
+        && request.resource.data.district == resource.data.district
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.resource.data.status == 'draft'
+            && request.resource.data.publishedAt == null
+          )
+          || (
+            request.resource.data.status == 'published'
+            && request.resource.data.publishedAt is timestamp
+            && (
+              (
+                resource.data.status == 'published'
+                && request.resource.data.publishedAt == resource.data.publishedAt
+              )
+              || (
+                resource.data.status != 'published'
+                && request.resource.data.publishedAt == request.time
+              )
+            )
+          )
+          || (
+            request.resource.data.status == 'cancelled'
+            && request.resource.data.publishedAt == resource.data.publishedAt
+          )
+        );
 
       allow delete: if isVerified()
         && request.auth.uid == resource.data.createdBy;

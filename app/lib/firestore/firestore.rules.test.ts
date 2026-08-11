@@ -12,6 +12,7 @@ import {
   getDocs,
   orderBy,
   query,
+  serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
@@ -59,9 +60,9 @@ function hostEventData(overrides: Record<string, unknown> = {}) {
     aiCategory: null,
     reviewedAt: null,
     reviewedBy: null,
-    createdAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
-    updatedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
-    publishedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    publishedAt: serverTimestamp(),
     ...overrides,
   };
 }
@@ -351,13 +352,47 @@ describe("LinkUp Firestore trust boundaries", () => {
     );
   });
 
+  it("rejects client-forged event audit timestamps", async () => {
+    const db = firestoreFor("alpha-student");
+    const forgedTime = Timestamp.fromDate(new Date("2029-12-01T16:00:00Z"));
+
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-created-at"),
+        hostEventData({ createdAt: forgedTime })
+      )
+    );
+    await assertFails(
+      setDoc(
+        doc(db, "events", "host-forged-published-at"),
+        hostEventData({ publishedAt: forgedTime })
+      )
+    );
+  });
+
   it("lets hosts switch visibility without changing school identity", async () => {
     const db = firestoreFor("alpha-student");
     const eventRef = doc(db, "events", "host-visibility-event");
 
     await assertSucceeds(setDoc(eventRef, hostEventData()));
-    await assertSucceeds(updateDoc(eventRef, { visibility: "district" }));
-    await assertSucceeds(updateDoc(eventRef, { visibility: "school" }));
+    await assertSucceeds(
+      updateDoc(eventRef, {
+        visibility: "district",
+        updatedAt: serverTimestamp(),
+      })
+    );
+    await assertFails(
+      updateDoc(eventRef, {
+        visibility: "district",
+        updatedAt: Timestamp.fromDate(new Date("2029-12-01T16:00:00Z")),
+      })
+    );
+    await assertSucceeds(
+      updateDoc(eventRef, {
+        visibility: "school",
+        updatedAt: serverTimestamp(),
+      })
+    );
     await assertFails(updateDoc(eventRef, { visibility: "public" }));
     await assertFails(updateDoc(eventRef, { school: "Beta High" }));
     await assertFails(updateDoc(eventRef, { district: "Other District" }));

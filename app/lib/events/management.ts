@@ -1,14 +1,6 @@
-export const EVENT_CATEGORIES = [
-  "study",
-  "party",
-  "athletics",
-  "club",
-  "dance",
-  "volunteer",
-  "academic",
-  "music",
-  "other",
-] as const;
+import { EVENT_CATEGORIES } from "./categories";
+
+export { EVENT_CATEGORIES } from "./categories";
 
 export const EVENT_VISIBILITIES = ["school", "district"] as const;
 export type HostEventVisibility = (typeof EVENT_VISIBILITIES)[number];

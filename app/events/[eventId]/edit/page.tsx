@@ -18,6 +18,10 @@ export default function EditEventPage() {
   const router = useRouter();
   const { eventId } = useParams<{ eventId: string }>();
   const [form, setForm] = useState<EventFormInput | null>(null);
+  const [publication, setPublication] = useState<{
+    status: FeedEvent["status"];
+    publishedAt: FeedEvent["publishedAt"];
+  }>({ status: "draft", publishedAt: null });
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,6 +35,10 @@ export default function EditEventPage() {
         return;
       }
       const event = { id: snapshot.id, ...snapshot.data() } as FeedEvent;
+      setPublication({
+        status: event.status,
+        publishedAt: event.publishedAt,
+      });
       setForm({
         title: event.title || "",
         startTime: toDateTimeLocal(event.startTime),
@@ -65,7 +73,12 @@ export default function EditEventPage() {
         rsvpDeadline: value.rsvpDeadline ? Timestamp.fromDate(value.rsvpDeadline) : null,
         visibility: value.visibility,
         status,
-        publishedAt: status === "published" ? serverTimestamp() : null,
+        publishedAt:
+          status === "published"
+            ? publication.status === "published" && publication.publishedAt
+              ? publication.publishedAt
+              : serverTimestamp()
+            : null,
         updatedAt: serverTimestamp(),
       });
       router.push(`/events/${eventId}`);

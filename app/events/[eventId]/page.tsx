@@ -15,6 +15,7 @@ import {
 import NavMenu from "../../components/layout/NavMenu";
 import BackButton from "../../components/ui/BackButton";
 import { getErrorMessage } from "../../lib/errors";
+import { normalizeCategory } from "../../lib/events/categories";
 import { hasVerifiedAccount } from "../../lib/auth/verification";
 import { canUserAccessEvent } from "../../lib/events/access";
 import { ALLOW_HOST_RSVP_PREVIEW } from "../../lib/events/attendance";
@@ -112,16 +113,30 @@ export default function EventDetailsPage() {
     try {
       setDuplicating(true);
       const duplicateId = `${event.id}-copy-${Date.now()}`;
-      const { id: _id, ...eventData } = event;
-      void _id;
       await setDoc(doc(db, "events", duplicateId), {
-        ...eventData,
         title: `Copy of ${event.title || "Untitled Event"}`.slice(0, 100),
+        description: event.description || "",
+        location: event.location || "TBD",
+        category: normalizeCategory(event.category),
+        district: event.district,
+        school: event.school,
+        visibility: event.visibility === "district" ? "district" : "school",
         status: "draft",
-        attendeeCount: 0,
         createdBy: user.uid,
+        hostName: event.hostName || "Student host",
         source: "user-posted",
         imported: false,
+        startTime: event.startTime,
+        endTime: event.endTime || null,
+        capacity: event.capacity || null,
+        rsvpDeadline: event.rsvpDeadline || null,
+        attendeeCount: 0,
+        moderationStatus: "pending",
+        suppressionReason: null,
+        relevanceScore: 0,
+        aiCategory: null,
+        reviewedAt: null,
+        reviewedBy: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         publishedAt: null,
