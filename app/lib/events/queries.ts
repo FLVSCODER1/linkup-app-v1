@@ -1,78 +1,28 @@
-import {
-  collection,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-  where,
-  type DocumentData,
-  type QueryConstraint,
-} from "firebase/firestore";
 import type { User } from "firebase/auth";
 
-import { rankFeedEvents } from "./ranking";
-import { db } from "../firebase";
 import type { OwnedDraftEvent } from "./drafts";
-import { removeDuplicateEvents } from "./filter";
-import { applyModerationFilter } from "./moderation";
 import { formatEventDateRange } from "./date";
-import type { FeedEvent, UserProfile } from "./types";
+import type { FeedEvent } from "./types";
 
-export async function getVisibleFeedEvents(
-  profile: UserProfile
-): Promise<FeedEvent[]> {
-  const district = profile.district;
-  const school = profile.school;
+export async function getRecommendedFeedEvents(user: User): Promise<FeedEvent[]> {
+  const token = await user.getIdToken(true);
+  const response = await fetch("/api/events/recommendations", {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  const data = (await response.json()) as {
+    events?: FeedEvent[];
+    error?: string;
+  };
 
-  if (!district) return [];
-
-  const eventsRef = collection(db, "events");
-
-  const baseConstraints: QueryConstraint[] = [
-    where("status", "==", "published"),
-    where("startTime", ">=", Timestamp.now()),
-    orderBy("startTime", "asc"),
-  ];
-
-  const queriesToRun = [
-    query(
-      eventsRef,
-      where("district", "==", district),
-      where("visibility", "==", "district"),
-      ...baseConstraints
-    ),
-  ];
-
-  if (school) {
-    queriesToRun.push(
-      query(
-        eventsRef,
-        where("district", "==", district),
-        where("school", "==", school),
-        where("visibility", "==", "school"),
-        ...baseConstraints
-      )
-    );
+  if (!response.ok) {
+    throw new Error(data.error || "We couldn't load event recommendations.");
   }
 
-  const snapshots = await Promise.all(queriesToRun.map((q) => getDocs(q)));
-
-  const events = snapshots.flatMap((snapshot) =>
-    snapshot.docs.map((eventDoc) => {
-      const data = eventDoc.data() as DocumentData;
-
-      return {
-        id: eventDoc.id,
-        ...data,
-        date: formatEventDateRange(data.startTime, data.endTime),
-      } as FeedEvent;
-    })
-  );
-
-  return rankFeedEvents(
-    applyModerationFilter(removeDuplicateEvents(events)),
-    profile
-  );
+  return (data.events ?? []).map((event) => ({
+    ...event,
+    date: formatEventDateRange(event.startTime, event.endTime),
+  }));
 }
 
 export async function getOwnedDraftEvents(user: User): Promise<FeedEvent[]> {
