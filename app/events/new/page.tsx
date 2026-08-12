@@ -117,11 +117,11 @@ export default function NewEventPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
       <div className="mx-auto max-w-2xl">
         <BackButton href="/events" label="Events" />
-        <h1 className="mb-2 text-3xl font-bold">Create an event</h1>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight sm:text-4xl">Create an event</h1>
         <p className="mb-6 text-sm text-white/70">Organize something real for students at your school or district.</p>
         <EventForm
           value={form}

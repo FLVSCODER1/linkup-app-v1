@@ -49,7 +49,7 @@ export default function NavMenu() {
   }
 
   return (
-    <div className="fixed right-4 top-4 z-50">
+    <div className="fixed right-4 top-4 z-50 lg:hidden">
       <button
         type="button"
         aria-expanded={open}

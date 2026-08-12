@@ -192,20 +192,20 @@ export default function PeoplePage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+      <main className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-white/70">Loading people...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
         <BackButton href={`/events/${eventId}`} label="Event details" />
 
-        <h1 className="mb-2 text-3xl font-bold">
+        <h1 className="mb-2 text-3xl font-bold tracking-tight sm:text-4xl">
           People for {eventId.replaceAll("-", " ")}
         </h1>
 
@@ -224,7 +224,7 @@ export default function PeoplePage() {
             {users.map((user) => (
               <div
                 key={user.id}
-                className="rounded-xl border border-white/10 bg-white/5 p-4"
+                className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-xl transition hover:border-white/20"
               >
                 <h2 className="text-xl font-semibold">
                   {user.displayName || "Unnamed"}
@@ -253,7 +253,7 @@ export default function PeoplePage() {
                   </button>
                   <button
                     onClick={() => sendInterest(user.id)}
-                    className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black"
+                    className="rounded-lg bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-2 text-sm font-semibold text-white shadow-lg"
                   >
                     Interested
                   </button>

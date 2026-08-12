@@ -134,7 +134,7 @@ export default function EditEventPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
       <div className="mx-auto max-w-2xl">
         <BackButton href={`/events/${eventId}`} label="Event" />

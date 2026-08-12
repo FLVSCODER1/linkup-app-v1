@@ -157,20 +157,20 @@ export default function EventPreferencesPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+      <main className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-white/70">Loading event...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
 
       <div className="mx-auto max-w-md">
         <BackButton href={`/events/${eventId}`} label="Event details" />
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-6 shadow-2xl">
           {message && !event ? (
             <p className="text-sm text-red-400">{message}</p>
           ) : (
@@ -225,7 +225,7 @@ export default function EventPreferencesPage() {
                 type="button"
                 onClick={savePreferences}
                 disabled={saving}
-                className="mt-6 w-full rounded-lg bg-white p-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                className="mt-6 w-full rounded-xl bg-gradient-to-r from-[#335cff] to-[#746ff7] p-3 font-semibold text-white shadow-[0_10px_28px_rgba(51,92,255,0.25)] transition hover:brightness-110 active:scale-95 disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save RSVP"}
               </button>

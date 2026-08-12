@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import BottomNavigation from "./components/layout/BottomNavigation";
+import AppChrome from "./components/layout/AppChrome";
 
 export const metadata: Metadata = {
   title: "LinkUp",
@@ -16,8 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
-        {children}
-        <BottomNavigation />
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

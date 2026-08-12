@@ -164,17 +164,17 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-2 text-3xl font-bold">Your Profile</h1>
+        <h1 className="mb-2 text-3xl font-bold tracking-tight sm:text-4xl">Your profile</h1>
 
         <p className="mb-6 text-sm text-white/70">
           This is what other students can see.
         </p>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-xl">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:p-7">
           <label className="mb-2 block text-sm text-white/70">First name</label>
           <input
             className="mb-4 w-full rounded-lg bg-white/10 p-3 outline-none"
@@ -255,7 +255,7 @@ export default function ProfilePage() {
           <button
             onClick={saveProfile}
             disabled={saving}
-            className="w-full rounded-lg bg-white p-3 font-semibold text-black disabled:opacity-50"
+            className="w-full rounded-xl bg-gradient-to-r from-[#335cff] to-[#746ff7] p-3 font-semibold text-white shadow-[0_10px_28px_rgba(51,92,255,0.25)] transition hover:brightness-110 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save profile"}
           </button>
