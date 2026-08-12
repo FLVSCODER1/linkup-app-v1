@@ -8,6 +8,22 @@ export interface OwnedDraftEvent {
   updatedAt: string | null;
 }
 
+export interface OwnedEditableEvent {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  category: string;
+  visibility: "school" | "district";
+  status: "draft" | "published" | "cancelled";
+  startTime: string | null;
+  endTime: string | null;
+  capacity: number | null;
+  rsvpDeadline: string | null;
+  publishedAt: string | null;
+  coverImageUrl: string | null;
+}
+
 interface DateLike {
   toDate(): Date;
 }
@@ -32,6 +48,36 @@ function toIsoString(value: unknown): string | null {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
   return null;
+}
+
+export function buildOwnedEditableEvent(
+  record: DraftRecord,
+  ownerId: string
+): OwnedEditableEvent | null {
+  const { id, data } = record;
+  if (data.createdBy !== ownerId) return null;
+
+  const status = data.status;
+  if (status !== "draft" && status !== "published" && status !== "cancelled") {
+    return null;
+  }
+
+  return {
+    id,
+    title: typeof data.title === "string" ? data.title : "",
+    description: typeof data.description === "string" ? data.description : "",
+    location: typeof data.location === "string" ? data.location : "",
+    category: typeof data.category === "string" ? data.category : "other",
+    visibility: data.visibility === "district" ? "district" : "school",
+    status,
+    startTime: toIsoString(data.startTime),
+    endTime: toIsoString(data.endTime),
+    capacity: typeof data.capacity === "number" ? data.capacity : null,
+    rsvpDeadline: toIsoString(data.rsvpDeadline),
+    publishedAt: toIsoString(data.publishedAt),
+    coverImageUrl:
+      typeof data.coverImageUrl === "string" ? data.coverImageUrl : null,
+  };
 }
 
 export function buildOwnedDraftEvents(

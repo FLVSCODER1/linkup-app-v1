@@ -1,6 +1,6 @@
 import type { User } from "firebase/auth";
 
-import type { OwnedDraftEvent } from "./drafts";
+import type { OwnedDraftEvent, OwnedEditableEvent } from "./drafts";
 import { formatEventDateRange } from "./date";
 import type { FeedEvent } from "./types";
 
@@ -45,4 +45,28 @@ export async function getOwnedDraftEvents(user: User): Promise<FeedEvent[]> {
     status: "draft",
     date: formatEventDateRange(draft.startTime, draft.endTime),
   }));
+}
+
+export async function getOwnedEventForEditing(
+  user: User,
+  eventId: string
+): Promise<OwnedEditableEvent> {
+  const token = await user.getIdToken(true);
+  const response = await fetch(
+    `/api/events/${encodeURIComponent(eventId)}/host`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+  const data = (await response.json()) as {
+    event?: OwnedEditableEvent;
+    error?: string;
+  };
+
+  if (!response.ok || !data.event) {
+    throw new Error(data.error || "We couldn't load this event for editing.");
+  }
+
+  return data.event;
 }
