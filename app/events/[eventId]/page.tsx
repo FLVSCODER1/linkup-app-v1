@@ -219,14 +219,14 @@ export default function EventDetailsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+      <main className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <p className="text-white/70">Loading event...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
 
       <div className="mx-auto max-w-2xl">
@@ -237,12 +237,12 @@ export default function EventDetailsPage() {
             <p className="text-white/70">{message}</p>
           </div>
         ) : (
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:p-7">
             <EventCoverImage
               url={event?.coverImageUrl}
               className="mb-6 aspect-[16/9] w-full rounded-2xl"
             />
-            <p className="mb-3 text-xs uppercase tracking-wide text-white/40">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[#8f8aff]">
               {event?.category || "event"}{event?.status === "draft" ? " · draft" : ""}
             </p>
 
@@ -301,7 +301,7 @@ export default function EventDetailsPage() {
 
             {event?.createdBy === currentUserId ? (
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <button onClick={() => router.push(`/events/${event.id}/edit`)} className="rounded-xl bg-white px-4 py-3 font-semibold text-black">Edit event</button>
+                <button onClick={() => router.push(`/events/${event.id}/edit`)} className="rounded-xl bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-3 font-semibold text-white shadow-lg">Edit event</button>
                 <button disabled={duplicating} onClick={duplicateEvent} className="rounded-xl border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">{duplicating ? "Duplicating..." : "Duplicate"}</button>
                 {ALLOW_HOST_RSVP_PREVIEW && event.status === "published" ? (
                   <button
@@ -315,7 +315,7 @@ export default function EventDetailsPage() {
             ) : (
               <button
                 onClick={() => event && router.push(`/events/${event.id}/preferences`)}
-                className="mt-8 w-full rounded-xl bg-white px-4 py-3 font-semibold text-black transition hover:scale-[1.02] active:scale-95"
+                className="mt-8 w-full rounded-xl bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-3 font-semibold text-white shadow-[0_10px_28px_rgba(51,92,255,0.25)] transition hover:brightness-110 active:scale-95"
               >
                 Join / Set Preferences
               </button>

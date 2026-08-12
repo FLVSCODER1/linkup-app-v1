@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --linkup-blue: #335cff;
+  --linkup-lavender: #746ff7;
+  --linkup-coral: #ff624d;
 }
 
 @theme inline {
@@ -25,6 +28,53 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+.app-shell {
+  background-image:
+    radial-gradient(circle at 52% -10%, rgba(91, 85, 247, 0.11), transparent 30rem),
+    radial-gradient(circle at 100% 40%, rgba(255, 98, 77, 0.045), transparent 24rem);
+}
+
+.app-shell main {
+  animation: app-page-enter 260ms ease-out both;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(116, 111, 247, 0.55);
+  outline-offset: 3px;
+}
+
+@keyframes app-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes auth-float {
@@ -111,6 +161,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-shell main,
   .auth-float,
   .auth-float-delayed,
   .auth-drift,

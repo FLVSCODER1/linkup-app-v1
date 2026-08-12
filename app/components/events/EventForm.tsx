@@ -66,7 +66,7 @@ export default function EventForm({
   }
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl sm:p-7">
       <div className="mb-5">
         <p className="text-sm text-white/70">Event cover (optional)</p>
         <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
@@ -85,7 +85,7 @@ export default function EventForm({
         <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
-            className="cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black"
+            className="cursor-pointer rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
             onClick={() => {
               setCoverSelectionError("");
               if (coverInputRef.current) {
@@ -183,7 +183,7 @@ export default function EventForm({
         {showDraftAction ? (
           <button type="button" disabled={submitting} onClick={() => onSubmit("draft")} className="rounded-lg border border-white/15 px-4 py-3 font-semibold text-white disabled:opacity-50">Save draft</button>
         ) : null}
-        <button type="button" disabled={submitting} onClick={() => onSubmit("published")} className="rounded-lg bg-white px-4 py-3 font-semibold text-black disabled:opacity-50">{submitting ? "Saving..." : submitLabel}</button>
+        <button type="button" disabled={submitting} onClick={() => onSubmit("published")} className="rounded-lg bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-3 font-semibold text-white shadow-[0_10px_28px_rgba(51,92,255,0.25)] transition hover:brightness-110 disabled:opacity-50">{submitting ? "Saving..." : submitLabel}</button>
       </div>
       {message && <p role="alert" className="mt-4 text-sm text-white/70">{message}</p>}
     </div>

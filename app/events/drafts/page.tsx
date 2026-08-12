@@ -48,16 +48,16 @@ export default function EventDraftsPage() {
   }, [reloadKey, router]);
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
-      <section className="mx-auto max-w-2xl">
+      <section className="mx-auto max-w-3xl">
         <BackButton href="/events" label="Events" />
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
               Host workspace
             </p>
-            <h1 className="text-3xl font-bold">Your drafts</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Your drafts</h1>
             <p className="mt-2 text-sm text-white/65">
               Only you can view unpublished events here.
             </p>
@@ -65,7 +65,7 @@ export default function EventDraftsPage() {
           <button
             type="button"
             onClick={() => router.push("/events/new")}
-            className="shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-95"
+            className="shrink-0 rounded-full bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-95"
           >
             New event
           </button>
@@ -105,7 +105,7 @@ export default function EventDraftsPage() {
         ) : (
           <div className="grid gap-4">
             {drafts.map((draft) => (
-              <article key={draft.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <article key={draft.id} className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl transition hover:border-white/20">
                 {draft.coverImageUrl ? (
                   <EventCoverImage url={draft.coverImageUrl} className="mb-5 aspect-[16/9] w-full rounded-xl" />
                 ) : null}

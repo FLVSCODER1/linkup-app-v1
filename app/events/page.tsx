@@ -124,21 +124,21 @@ export default function EventsPage() {
   }, [profile, loadingProfile]);
 
   return (
-    <main className="min-h-screen bg-black p-6 pb-28 text-white">
+    <main className="min-h-screen bg-transparent px-4 py-6 pb-28 text-white sm:px-6 lg:px-10 lg:py-9">
       <NavMenu />
 
-      <section className="mx-auto max-w-2xl">
-        <header className="mb-6">
+      <section className="mx-auto max-w-[70rem]">
+        <header className="mb-7 max-w-2xl">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
             LinkUp
           </p>
 
           <div className="flex items-center justify-between gap-4">
-            <h1 className="text-3xl font-bold">Events</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Events</h1>
             <button
               type="button"
               onClick={() => router.push("/events/drafts")}
-              className="rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 active:scale-95"
+              className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/10 active:scale-95 lg:hidden"
             >
               Your drafts
             </button>
@@ -147,71 +147,106 @@ export default function EventsPage() {
           <p className="mt-2 text-sm text-white/70">{subtitle}</p>
         </header>
 
-        {loading ? (
-          <div className="grid gap-4">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/5"
-              />
-            ))}
-          </div>
-        ) : error ? (
-          <div
-            role="alert"
-            className="rounded-2xl border border-red-500/20 bg-red-500/10 p-5 text-red-100"
-          >
-            <h2 className="text-lg font-semibold">Events are unavailable</h2>
-            <p className="mt-2 text-sm text-red-100/80">{error}</p>
-            <button
-              type="button"
-              onClick={() => setReloadKey((current) => current + 1)}
-              className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-95"
-            >
-              Try again
-            </button>
-          </div>
-        ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold">
-              No upcoming events at {profile?.school || profile?.district}
-            </h2>
-
-            <p className="mt-2 text-sm text-white/70">
-              Nothing relevant is scheduled right now. Check back later or create
-              an event for your school community.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {events.map((event) => (
-              <div key={event.id} className="relative">
-                {event.imported || event.source === "ics" ? (
-                  <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
-                    Imported
-                  </div>
-                ) : null}
-
-                <EventCard
-                  event={event}
-                  isJoined={false}
-                  attendeeCount={event.attendeeCount ?? 0}
-                  onClick={() => router.push(`/events/${event.id}`)}
-                  onJoinClick={() =>
-                    router.push(`/events/${event.id}/preferences`)
-                  }
-                />
+        <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,42rem)_18rem]">
+          <div>
+            {loading ? (
+              <div className="grid gap-5">
+                {[1, 2, 3].map((item) => (
+                  <div
+                    key={item}
+                    className="h-48 animate-pulse rounded-3xl border border-white/10 bg-white/[0.045]"
+                  />
+                ))}
               </div>
-            ))}
+            ) : error ? (
+              <div
+                role="alert"
+                className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-red-100 shadow-2xl"
+              >
+                <h2 className="text-lg font-semibold">Events are unavailable</h2>
+                <p className="mt-2 text-sm text-red-100/80">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((current) => current + 1)}
+                  className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 active:scale-95"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : events.length === 0 ? (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-7 shadow-2xl">
+                <h2 className="text-lg font-semibold">
+                  No upcoming events at {profile?.school || profile?.district}
+                </h2>
+
+                <p className="mt-2 text-sm text-white/70">
+                  Nothing relevant is scheduled right now. Check back later or create
+                  an event for your school community.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-5">
+                {events.map((event) => (
+                  <div key={event.id} className="relative">
+                    {event.imported || event.source === "ics" ? (
+                      <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-xs font-semibold text-blue-200">
+                        Imported
+                      </div>
+                    ) : null}
+
+                    <EventCard
+                      event={event}
+                      isJoined={false}
+                      attendeeCount={event.attendeeCount ?? 0}
+                      onClick={() => router.push(`/events/${event.id}`)}
+                      onJoinClick={() =>
+                        router.push(`/events/${event.id}/preferences`)
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          <aside
+            className="sticky top-8 hidden space-y-4 xl:block"
+            aria-label="LinkUp pilot information"
+          >
+            <div className="rounded-3xl border border-white/10 bg-white/[0.045] p-5 shadow-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8f8aff]">
+                Your community
+              </p>
+              <h2 className="mt-3 text-lg font-bold">
+                {profile?.school || profile?.district || "Your school"}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-white/55">
+                Your feed only includes eligible school and district activities.
+              </p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.025] p-5">
+              <p className="text-sm font-semibold">Make the feed useful</p>
+              <p className="mt-2 text-sm leading-6 text-white/50">
+                Create something students can attend in real life, or suggest an
+                official calendar.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/events/new")}
+                className="mt-4 w-full rounded-2xl bg-gradient-to-r from-[#335cff] to-[#746ff7] px-4 py-3 text-sm font-bold shadow-[0_10px_28px_rgba(51,92,255,0.2)] transition hover:brightness-110"
+              >
+                Create an event
+              </button>
+            </div>
+          </aside>
+        </div>
       </section>
 
       <button
         type="button"
         onClick={() => router.push("/events/import-calendar")}
         className="
-          fixed bottom-6 right-6 z-50 rounded-full border border-white/10
+          fixed bottom-24 right-4 z-30 rounded-full border border-white/10 sm:right-6 lg:bottom-6
           bg-black/80 px-3 py-2 text-xs font-semibold text-white shadow-xl
           backdrop-blur transition hover:scale-105 hover:bg-white/10 active:scale-95
         "

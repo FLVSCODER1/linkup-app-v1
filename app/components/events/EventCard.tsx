@@ -21,19 +21,19 @@ export default function EventCard({
   return (
     <article
       onClick={onClick}
-      className="cursor-pointer rounded-2xl border border-white/10 bg-white/5 p-5 transition hover:bg-white/10"
+      className="group cursor-pointer overflow-hidden rounded-3xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_16px_60px_rgba(0,0,0,0.18)] transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07] sm:p-5"
     >
       {event.coverImageUrl ? (
         <EventCoverImage
           url={event.coverImageUrl}
-          className="mb-5 aspect-[16/9] w-full rounded-xl"
+          className="mb-5 aspect-[16/9] w-full rounded-2xl transition duration-500 group-hover:scale-[1.01]"
         />
       ) : null}
-      <p className="mb-2 text-xs uppercase tracking-wide text-white/40">
+      <p className="mb-2 text-xs font-bold uppercase tracking-[0.15em] text-[#8f8aff]">
         {event.category || "event"}
       </p>
 
-      <h2 className="text-2xl font-semibold text-white">
+      <h2 className="text-2xl font-bold tracking-tight text-white">
         {event.title || "Untitled Event"}
       </h2>
 
@@ -60,7 +60,7 @@ export default function EventCard({
           className={`rounded-full px-4 py-2 text-xs font-semibold transition active:scale-95 ${
             isJoined
               ? "bg-white/10 text-white hover:bg-white/20"
-              : "bg-white text-black hover:scale-105"
+              : "bg-gradient-to-r from-[#335cff] to-[#746ff7] text-white shadow-[0_8px_22px_rgba(51,92,255,0.25)] hover:brightness-110"
           }`}
         >
           {isJoined ? "Joined" : "Join"}
