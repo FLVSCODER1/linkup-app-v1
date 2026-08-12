@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
+import type { User } from "firebase/auth";
 
 import { auth } from "../lib/firebase";
 import { fetchCurrentUserProfile } from "../lib/auth/profile-client";
@@ -11,13 +12,14 @@ import { TimeoutError, withTimeout } from "../lib/async/with-timeout";
 import NavMenu from "../components/layout/NavMenu";
 import EventCard from "../components/events/EventCard";
 
-import { getVisibleFeedEvents } from "../lib/events/queries";
+import { getRecommendedFeedEvents } from "../lib/events/queries";
 import type { FeedEvent, UserProfile } from "../lib/events/types";
 
 export default function EventsPage() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [events, setEvents] = useState<FeedEvent[]>([]);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -28,6 +30,7 @@ export default function EventsPage() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setProfile(null);
+      setCurrentUser(currentUser);
       setEvents([]);
       setError(null);
       setLoadingProfile(true);
@@ -77,14 +80,14 @@ export default function EventsPage() {
 
   useEffect(() => {
     async function loadEvents() {
-      if (loadingProfile || !profile) return;
+      if (loadingProfile || !profile || !currentUser) return;
 
       try {
         setLoadingEvents(true);
         setError(null);
 
         const visibleEvents = await withTimeout(
-          getVisibleFeedEvents(profile),
+          getRecommendedFeedEvents(currentUser),
           10_000,
           "Events are taking longer than expected."
         );
@@ -102,7 +105,7 @@ export default function EventsPage() {
     }
 
     loadEvents();
-  }, [profile, loadingProfile]);
+  }, [profile, currentUser, loadingProfile]);
 
   const loading = loadingProfile || loadingEvents;
 
