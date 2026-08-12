@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { deleteDoc, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 
 import EventForm from "../../../components/events/EventForm";
 import NavMenu from "../../../components/layout/NavMenu";
@@ -13,6 +13,7 @@ import { getErrorMessage } from "../../../lib/errors";
 import { auth, db } from "../../../lib/firebase";
 import { toDateTimeLocal, validateEventInput, type EventFormInput } from "../../../lib/events/management";
 import type { FeedEvent } from "../../../lib/events/types";
+import { getOwnedEventForEditing } from "../../../lib/events/queries";
 import {
   compressEventCover,
   deleteEventCover,
@@ -37,12 +38,7 @@ export default function EditEventPage() {
     if (!user) return router.replace("/");
     if (!(await hasVerifiedAccount(user, true))) return router.replace("/verify-email");
     try {
-      const snapshot = await getDoc(doc(db, "events", eventId));
-      if (!snapshot.exists() || snapshot.data().createdBy !== user.uid) {
-        setMessage("Only the event host can edit this event.");
-        return;
-      }
-      const event = { id: snapshot.id, ...snapshot.data() } as FeedEvent;
+      const event = await getOwnedEventForEditing(user, eventId);
       setPublication({
         status: event.status,
         publishedAt: event.publishedAt,
