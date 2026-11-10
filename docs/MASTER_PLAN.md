@@ -145,4 +145,3 @@ Items are ordered. Skip an item only when it is blocked or too large for one wee
 - Club operations, chat, documents, or polls
 
 Those features are deliberately later. LinkUp wins by making discovery easy, not by rebuilding every tool a club already has.
-

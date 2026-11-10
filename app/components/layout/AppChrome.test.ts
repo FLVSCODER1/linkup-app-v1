@@ -28,4 +28,3 @@ describe("AppChrome route selection", () => {
     expect(usesAppChrome(pathname)).toBe(false);
   });
 });
-
