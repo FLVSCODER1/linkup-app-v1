@@ -5,17 +5,18 @@ import { usePathname } from "next/navigation";
 import BottomNavigation from "./BottomNavigation";
 import DesktopNavigation from "./DesktopNavigation";
 
-const PUBLIC_PATHS = new Set([
-  "/",
-  "/signup",
-  "/request-school",
-  "/beta",
-  "/profile/setup",
-  "/verify-email",
-]);
+const APP_CHROME_PATHS = ["/event", "/events", "/matches", "/people", "/profile"];
 
-function usesAppChrome(pathname: string) {
-  return !PUBLIC_PATHS.has(pathname) && !pathname.startsWith("/admin");
+const PUBLIC_PATHS = new Set(["/profile/setup"]);
+
+export function usesAppChrome(pathname: string) {
+  if (PUBLIC_PATHS.has(pathname)) {
+    return false;
+  }
+
+  return APP_CHROME_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
 }
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
