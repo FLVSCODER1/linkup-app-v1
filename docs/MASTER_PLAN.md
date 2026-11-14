@@ -68,7 +68,7 @@ Items are ordered. Skip an item only when it is blocked or too large for one wee
 
 - [x] Add search metadata, canonical URL, `robots.txt`, `sitemap.xml`, social preview, and a public 404 page. (`v0.8.0-beta.3`)
 - [ ] Add privacy-respecting analytics for landing-page visits, signup starts, completed profiles, event views, saves, RSVPs, shares, and external club-link clicks.
-- [ ] Add a lightweight production smoke-test checklist and automated public-route checks.
+- [x] Add a lightweight production smoke-test checklist and automated public-route checks.
 - [ ] Audit dependency, Firebase, Vercel, and environment configuration; document only actionable problems.
 - [ ] Add a public status/version surface so preview and production builds are easy to identify.
 
