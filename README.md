@@ -19,7 +19,7 @@ directory and manual-verification policy.
 
 Requirements:
 
-- Node.js 20 or newer
+- Node.js 22–24 (CI uses 22; Firebase Admin requires 22 or newer)
 - npm
 - Access to a non-production Firebase project for integration tests
 
@@ -58,6 +58,9 @@ That command runs unit tests, strict lint, TypeScript, and a production build. I
 | `npm run typecheck` | Run TypeScript without emitting files |
 | `npm run build` | Create a production build |
 | `npm run check` | Run every local quality gate |
+
+The repository's dependency, Firebase, Vercel, and environment-configuration
+baseline is recorded in [docs/CONFIGURATION_AUDIT.md](docs/CONFIGURATION_AUDIT.md).
 
 ## Current constraints
 
