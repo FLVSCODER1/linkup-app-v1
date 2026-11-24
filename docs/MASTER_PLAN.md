@@ -66,6 +66,7 @@ An item is complete only when:
 
 - [x] Protect legacy email-bearing profiles, make new profile emails private, lock existing school assignments, and authorize interest signals.
 - [ ] Approve and run a backed-up migration of legacy public profile email/surname fields; verify people screens against migrated test data before rollout.
+- [x] Add an explicit-project, dry-run-first private-profile migration with conflict protection, transactional writes, pagination and restart tests.
 - [ ] Bound calendar downloads while streaming and close private-address/DNS validation gaps.
 - [ ] Verify the complete event lifecycle and establish reporting/blocking plus a responsible moderation contact before pilot expansion.
 

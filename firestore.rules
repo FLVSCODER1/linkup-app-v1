@@ -224,8 +224,6 @@ service cloud.firestore {
         && (
           isOwner(userId)
           || (
-            !resource.data.keys().hasAny(['email', 'lastName'])
-            &&
             resource.data.school == userSchool()
             && resource.data.district == userDistrict()
           )
