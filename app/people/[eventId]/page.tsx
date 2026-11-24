@@ -11,6 +11,7 @@ import {
   getDocs,
   query,
   setDoc,
+  serverTimestamp,
   where,
 } from "firebase/firestore";
 import NavMenu from "../../components/layout/NavMenu";
@@ -181,7 +182,7 @@ export default function PeoplePage() {
         fromUserId: currentUser.uid,
         toUserId,
         eventId,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
       });
 
       setMessage("Interest saved privately.");

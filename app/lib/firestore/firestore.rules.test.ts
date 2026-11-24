@@ -21,9 +21,13 @@ import {
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { EVENT_CATEGORIES } from "../events/categories";
+import { initializeApp as initializeAdminApp } from "firebase-admin/app";
+import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import { migrateProfile, migratePrivateProfiles } from "../../../scripts/lib/migrate-private-profiles.mjs";
 
 const projectId = "demo-linkup";
 let testEnvironment: RulesTestEnvironment;
+const migrationDb = getAdminFirestore(initializeAdminApp({ projectId }, "migration-tests"));
 
 function firestoreFor(
   uid: string,
@@ -78,7 +82,6 @@ async function seedData() {
     await Promise.all([
       setDoc(doc(db, "users", "alpha-student"), {
         uid: "alpha-student",
-        email: "alpha-student@students.example.org",
         displayName: "Alpha Student",
         grade: "10",
         bio: "",
@@ -89,7 +92,6 @@ async function seedData() {
       }),
       setDoc(doc(db, "users", "beta-student"), {
         uid: "beta-student",
-        email: "beta-student@students.example.org",
         displayName: "Beta Student",
         grade: "10",
         bio: "",
@@ -100,7 +102,6 @@ async function seedData() {
       }),
       setDoc(doc(db, "users", "other-district"), {
         uid: "other-district",
-        email: "other-district@students.example.org",
         displayName: "Other Student",
         grade: "10",
         bio: "",
@@ -208,9 +209,70 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await testEnvironment.cleanup();
+  await migrationDb.terminate();
 });
 
 describe("LinkUp Firestore trust boundaries", () => {
+  it("migrates legacy private fields without breaking school profile queries", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "peer"), {
+        school: "Alpha High", district: "Test District", email: "private@example.edu", lastName: "Student",
+      });
+    });
+    expect((await migrateProfile(migrationDb, "peer")).status).toBe("pending");
+    expect((await migrationDb.doc("privateUserProfiles/peer").get()).exists).toBe(false);
+    expect((await migrationDb.doc("users/peer").get()).data()?.email).toBe("private@example.edu");
+    expect((await migrateProfile(migrationDb, "peer", true)).status).toBe("migrated");
+    const profile = (await migrationDb.doc("users/peer").get()).data();
+    expect(profile).toEqual({ school: "Alpha High", district: "Test District" });
+    expect((await migrationDb.doc("privateUserProfiles/peer").get()).data()).toMatchObject({ email: "private@example.edu", lastName: "Student" });
+    expect((await migrateProfile(migrationDb, "peer", true)).status).toBe("clean");
+    await assertSucceeds(getDocs(query(collection(firestoreFor("alpha-student"), "users"), where("school", "==", "Alpha High"), where("district", "==", "Test District"))));
+    await assertSucceeds(getDoc(doc(firestoreFor("peer"), "users", "peer")));
+    await assertFails(getDoc(doc(firestoreFor("peer"), "privateUserProfiles", "peer")));
+  });
+
+  it("preserves conflicting records and resumes safely after interruption", async () => {
+    await migrationDb.doc("users/conflict").set({ email: "public@example.edu", school: "Alpha" });
+    await migrationDb.doc("privateUserProfiles/conflict").set({ email: "private@example.edu", bio: "unchanged" });
+    expect((await migrateProfile(migrationDb, "conflict", true)).status).toBe("conflict");
+    expect((await migrationDb.doc("users/conflict").get()).data()?.email).toBe("public@example.edu");
+    expect((await migrationDb.doc("privateUserProfiles/conflict").get()).data()).toEqual({ email: "private@example.edu", bio: "unchanged" });
+    await migrationDb.doc("users/aaa-first").set({ email: "first@example.edu", school: "Alpha" });
+    await migrationDb.doc("users/zzz-last").set({ lastName: "Last", school: "Alpha" });
+    await expect(migratePrivateProfiles(migrationDb, { apply: true, report: () => { throw new Error("interrupted"); } })).rejects.toThrow("interrupted");
+    expect((await migrationDb.doc("users/aaa-first").get()).data()).toEqual({ school: "Alpha" });
+    const counts = await migratePrivateProfiles(migrationDb, { apply: true });
+    expect(counts.conflict).toBe(1);
+    expect((await migrationDb.doc("users/zzz-last").get()).data()).toEqual({ school: "Alpha" });
+  });
+
+  it("scans beyond the first page without skipping records", async () => {
+    const batch = migrationDb.batch();
+    for (let index = 0; index < 101; index++) {
+      batch.set(migrationDb.doc(`users/paged-${String(index).padStart(3, "0")}`), { lastName: "Student", school: "Alpha" });
+    }
+    await batch.commit();
+    const counts = await migratePrivateProfiles(migrationDb, { apply: true });
+    expect(counts.migrated).toBe(101);
+    expect((await migratePrivateProfiles(migrationDb)).pending).toBe(0);
+    expect((await migrationDb.doc("users/paged-100").get()).data()).toEqual({ school: "Alpha" });
+  });
+
+  it("limits interest signals to same-school recipients and accessible events", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "peer"), {
+        school: "Alpha High", district: "Test District",
+      });
+    });
+    const db = firestoreFor("alpha-student");
+    const data = { fromUserId: "alpha-student", toUserId: "peer", eventId: "alpha-school-event", createdAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(db, "interests", "alpha-school-event_alpha-student_peer"), data));
+    await assertFails(setDoc(doc(db, "interests", "beta-school-event_alpha-student_peer"), { ...data, eventId: "beta-school-event" }));
+    await assertFails(setDoc(doc(db, "interests", "district-event_alpha-student_beta-student"), { ...data, toUserId: "beta-student", eventId: "district-event" }));
+    await assertFails(setDoc(doc(db, "interests", "forged"), data));
+    await assertFails(updateDoc(doc(firestoreFor("peer"), "interests", "alpha-school-event_alpha-student_peer"), { fromUserId: "peer" }));
+  });
   it("denies an account without email or manual verification", async () => {
     const db = firestoreFor("alpha-student", { email_verified: false });
     await assertFails(getDoc(doc(db, "users", "alpha-student")));

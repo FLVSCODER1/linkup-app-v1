@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore --project demo-linkup \"vitest run --config vitest.rules.config.ts\"",
     "test:smoke": "node scripts/smoke-public-routes.mjs",
+    "migrate:private-profiles": "node scripts/migrate-private-profiles.mjs",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "check": "npm run test && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:smoke"
