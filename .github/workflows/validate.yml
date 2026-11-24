@@ -52,5 +52,8 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Public route smoke tests
+        run: npm run test:smoke
+
       - name: Diff check
         run: git diff --check origin/main...HEAD
