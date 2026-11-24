@@ -11,9 +11,10 @@
     "start": "next start",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --only firestore --project demo-linkup \"vitest run --config vitest.rules.config.ts\"",
+    "test:smoke": "node scripts/smoke-public-routes.mjs",
     "lint": "eslint --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "check": "npm run test && npm run test:rules && npm run lint && npm run typecheck && npm run build"
+    "check": "npm run test && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:smoke"
   },
   "dependencies": {
     "@firebase/app": "0.16.0",
