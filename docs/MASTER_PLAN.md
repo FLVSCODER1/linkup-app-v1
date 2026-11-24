@@ -62,6 +62,13 @@ An item is complete only when:
 
 ## Work queue
 
+### Security review follow-up — before growth work
+
+- [x] Protect legacy email-bearing profiles, make new profile emails private, lock existing school assignments, and authorize interest signals.
+- [ ] Approve and run a backed-up migration of legacy public profile email/surname fields; verify people screens against migrated test data before rollout.
+- [ ] Bound calendar downloads while streaming and close private-address/DNS validation gaps.
+- [ ] Verify the complete event lifecycle and establish reporting/blocking plus a responsible moderation contact before pilot expansion.
+
 Items are ordered. Skip an item only when it is blocked or too large for one weekly pull request; record why in the new pull request.
 
 ### P0 — Restore momentum and make growth measurable

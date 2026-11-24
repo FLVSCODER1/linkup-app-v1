@@ -78,7 +78,6 @@ async function seedData() {
     await Promise.all([
       setDoc(doc(db, "users", "alpha-student"), {
         uid: "alpha-student",
-        email: "alpha-student@students.example.org",
         displayName: "Alpha Student",
         grade: "10",
         bio: "",
@@ -89,7 +88,6 @@ async function seedData() {
       }),
       setDoc(doc(db, "users", "beta-student"), {
         uid: "beta-student",
-        email: "beta-student@students.example.org",
         displayName: "Beta Student",
         grade: "10",
         bio: "",
@@ -100,7 +98,6 @@ async function seedData() {
       }),
       setDoc(doc(db, "users", "other-district"), {
         uid: "other-district",
-        email: "other-district@students.example.org",
         displayName: "Other Student",
         grade: "10",
         bio: "",
@@ -211,6 +208,30 @@ afterAll(async () => {
 });
 
 describe("LinkUp Firestore trust boundaries", () => {
+  it("hides legacy email-bearing profiles from schoolmates", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "peer"), {
+        school: "Alpha High", district: "Test District", email: "private@example.edu",
+      });
+    });
+    await assertFails(getDoc(doc(firestoreFor("alpha-student"), "users", "peer")));
+    await assertSucceeds(getDoc(doc(firestoreFor("peer"), "users", "peer")));
+  });
+
+  it("limits interest signals to same-school recipients and accessible events", async () => {
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "peer"), {
+        school: "Alpha High", district: "Test District",
+      });
+    });
+    const db = firestoreFor("alpha-student");
+    const data = { fromUserId: "alpha-student", toUserId: "peer", eventId: "alpha-school-event", createdAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(db, "interests", "alpha-school-event_alpha-student_peer"), data));
+    await assertFails(setDoc(doc(db, "interests", "beta-school-event_alpha-student_peer"), { ...data, eventId: "beta-school-event" }));
+    await assertFails(setDoc(doc(db, "interests", "district-event_alpha-student_beta-student"), { ...data, toUserId: "beta-student", eventId: "district-event" }));
+    await assertFails(setDoc(doc(db, "interests", "forged"), data));
+    await assertFails(updateDoc(doc(firestoreFor("peer"), "interests", "alpha-school-event_alpha-student_peer"), { fromUserId: "peer" }));
+  });
   it("denies an account without email or manual verification", async () => {
     const db = firestoreFor("alpha-student", { email_verified: false });
     await assertFails(getDoc(doc(db, "users", "alpha-student")));

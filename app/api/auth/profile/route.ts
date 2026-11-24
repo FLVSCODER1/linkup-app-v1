@@ -7,6 +7,7 @@ import {
   validateProfileSetupInput,
 } from "@/app/lib/auth/profile-validation";
 import { resolveAssignedAdminSchoolContext } from "@/app/lib/auth/admin-profile-school";
+import { canKeepSchoolAssignment } from "@/app/lib/auth/school-assignment";
 import { validateSchoolSelection } from "@/app/lib/auth/school-directory";
 import { getSchoolDirectoryContext } from "@/app/lib/auth/school-directory.server";
 import {
@@ -143,8 +144,12 @@ export async function POST(request: NextRequest) {
       .collection("privateUserProfiles")
       .doc(token.uid);
 
-    await db.runTransaction(async (transaction) => {
+    const saved = await db.runTransaction(async (transaction) => {
       const existing = await transaction.get(userRef);
+      if (!canKeepSchoolAssignment(existing.data(), {
+        schoolId: school.id, districtId: context.districtId,
+        school: school.name, district: context.districtName,
+      })) return false;
       const value = validation.value;
       const identity = buildStoredProfileIdentity(value);
 
@@ -152,7 +157,7 @@ export async function POST(request: NextRequest) {
         userRef,
         {
           uid: token.uid,
-          email: token.email?.toLowerCase(),
+          email: FieldValue.delete(),
           ...identity.publicIdentity,
           districtId: context.districtId,
           district: context.districtName,
@@ -177,6 +182,7 @@ export async function POST(request: NextRequest) {
         {
           uid: token.uid,
           ...identity.privateIdentity,
+          email: token.email?.toLowerCase(),
           updatedAt: FieldValue.serverTimestamp(),
           ...(existing.exists
             ? {}
@@ -184,7 +190,15 @@ export async function POST(request: NextRequest) {
         },
         { merge: true }
       );
+      return true;
     });
+
+    if (!saved) {
+      return NextResponse.json(
+        { error: "School transfers require administrator verification." },
+        { status: 403 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

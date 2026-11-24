@@ -224,6 +224,8 @@ service cloud.firestore {
         && (
           isOwner(userId)
           || (
+            !resource.data.keys().hasAny(['email', 'lastName'])
+            &&
             resource.data.school == userSchool()
             && resource.data.district == userDistrict()
           )
@@ -370,8 +372,27 @@ service cloud.firestore {
           || resource.data.toUserId == request.auth.uid
         );
 
-      allow create, update: if isVerified()
-        && request.resource.data.fromUserId == request.auth.uid;
+      function validInterest() {
+        let data = request.resource.data;
+        let recipient = get(/databases/$(database)/documents/users/$(data.toUserId)).data;
+        return data.keys().hasAll(['fromUserId', 'toUserId', 'eventId', 'createdAt'])
+          && data.keys().hasOnly(['fromUserId', 'toUserId', 'eventId', 'createdAt'])
+          && data.fromUserId == request.auth.uid
+          && data.toUserId is string
+          && data.toUserId != request.auth.uid
+          && data.eventId is string
+          && interestId == data.eventId + '_' + request.auth.uid + '_' + data.toUserId
+          && recipient.school == userSchool()
+          && recipient.district == userDistrict()
+          && publishedEventByIdIsVisible(data.eventId)
+          && data.createdAt == request.time;
+      }
+
+      allow create: if isVerified() && validInterest();
+      allow update: if isVerified() && validInterest()
+        && resource.data.fromUserId == request.auth.uid
+        && request.resource.data.toUserId == resource.data.toUserId
+        && request.resource.data.eventId == resource.data.eventId;
 
       allow delete: if isVerified()
         && resource.data.fromUserId == request.auth.uid;
