@@ -2,6 +2,9 @@
   "name": "nextjs",
   "version": "0.8.0-beta.2",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0 <25"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
@@ -14,9 +17,11 @@
     "check": "npm run test && npm run test:rules && npm run lint && npm run typecheck && npm run build && npm run test:smoke"
   },
   "dependencies": {
+    "@firebase/app": "0.16.0",
+    "@firebase/app-compat": "0.5.16",
     "firebase": "^12.17.1",
-    "firebase-admin": "13.9.0",
-    "next": "^16.3.0",
+    "firebase-admin": "^14.5.1",
+    "next": "^16.4.6",
     "node-ical": "^0.26.1",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -35,6 +40,7 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
+    "@grpc/grpc-js": "1.14.7",
     "websocket-driver": "0.7.5"
   }
 }

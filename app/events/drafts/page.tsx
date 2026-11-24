@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 
 import NavMenu from "../../components/layout/NavMenu";
@@ -13,17 +13,31 @@ import { auth } from "../../lib/firebase";
 import { getOwnedDraftEvents } from "../../lib/events/queries";
 import type { FeedEvent } from "../../lib/events/types";
 
+function DraftSavedStatus() {
+  const searchParams = useSearchParams();
+
+  if (!searchParams.has("saved")) {
+    return null;
+  }
+
+  return (
+    <p
+      role="status"
+      className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100"
+    >
+      Draft saved. It remains private until you publish it.
+    </p>
+  );
+}
+
 export default function EventDraftsPage() {
   const router = useRouter();
   const [drafts, setDrafts] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    setSaved(new URLSearchParams(window.location.search).has("saved"));
-
     return onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace("/");
@@ -71,11 +85,9 @@ export default function EventDraftsPage() {
           </button>
         </div>
 
-        {saved ? (
-          <p role="status" className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-            Draft saved. It remains private until you publish it.
-          </p>
-        ) : null}
+        <Suspense fallback={null}>
+          <DraftSavedStatus />
+        </Suspense>
 
         {loading ? (
           <div className="grid gap-4">

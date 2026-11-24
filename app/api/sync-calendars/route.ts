@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-import { getAdminDb } from "@/app/lib/firebase-admin";
+import { isAuthorizedBearer } from "@/app/lib/auth/bearer-secret";
 import { fetchPublicCalendarText } from "@/app/lib/calendar/source-url";
+import { getAdminDb } from "@/app/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -281,7 +282,7 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");
 
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!isAuthorizedBearer(authHeader, process.env.CRON_SECRET)) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
