@@ -40,6 +40,9 @@
     "vitest": "^4.1.10"
   },
   "overrides": {
+    "firebase-admin": {
+      "jwks-rsa": "3.2.2"
+    },
     "@grpc/grpc-js": "1.14.7",
     "websocket-driver": "0.7.5"
   }

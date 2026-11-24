@@ -13,6 +13,12 @@ const baseUrl = (configuredBaseUrl || `http://127.0.0.1:${LOCAL_PORT}`).replace(
 
 const checks = [
   {
+    path: "/api/auth/profile",
+    status: 401,
+    contentType: "application/json",
+    includes: ["Unauthorized"],
+  },
+  {
     path: "/",
     status: 200,
     contentType: "text/html",
