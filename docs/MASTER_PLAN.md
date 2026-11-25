@@ -62,6 +62,15 @@ An item is complete only when:
 
 ## Work queue
 
+### Security review follow-up — before growth work
+
+Profile privacy, immutable school assignment, interest authorization and migration
+tooling are covered by PR #25. Production migration still requires approved
+backups, a maintenance window and authorized project access. Do not run it here.
+
+- [x] Bound calendar downloads while streaming and close private-address/DNS validation gaps.
+- [ ] Verify the complete event lifecycle and establish reporting/blocking plus a responsible moderation contact before pilot expansion.
+
 Items are ordered. Skip an item only when it is blocked or too large for one weekly pull request; record why in the new pull request.
 
 ### P0 — Restore momentum and make growth measurable
